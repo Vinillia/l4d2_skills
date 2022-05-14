@@ -11,6 +11,15 @@
 #define MAX_UPGRADES 12
 #define UPGRADE_NAME_LENGTH 64
 
+public Plugin myinfo =
+{
+	name = "[L4D2] Team Upgrades",
+	author = "BHaType",
+	description = "Adds team upgrades to skills menu",
+	version = "1.0",
+	url = "https://github.com/Vinillia/l4d2_skills"
+};
+
 typedef UpgradeAction = function void(int buyer); 
 
 enum struct SettingsManager
@@ -195,7 +204,6 @@ public void OnHealthUpgrade(int buyer)
 	{
 		if (!IsClientInGame(i) || GetClientTeam(i) != 2 || !IsPlayerAlive(i))
 			continue;
-		
 
 		newValue = GetEntProp(i, Prop_Send, "m_iMaxHealth") + g_SettingsManager.GetValue("more_health_add");
 		SetEntProp(i, Prop_Send, "m_iMaxHealth", newValue);
