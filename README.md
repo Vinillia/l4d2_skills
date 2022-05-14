@@ -7,7 +7,7 @@ All purchases remain until the new chapter begins.
   - `skills_list` - Print all registered skills
   - `skills_give_money <client> <amount>` - Give money to client 
   - `skills_give_skill <target> <skill name>` - Give skill to client 
-  - `skills_config_reload <flags>` - Reload config (Flags: `1 - reload` `2 - notify` 3 - reload and notify)
+  - `skills_config_reload <flags>` - Reload config (Flags: 1 - reload 2 - notify 3 - reload and notify)
 ### Client Commands
   - `skills_job_info`  - Print rewards for every special
   - `skills` - Open skills menu 
