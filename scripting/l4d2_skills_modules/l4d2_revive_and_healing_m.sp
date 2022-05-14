@@ -8,6 +8,15 @@
 
 #define SKILL_NAME "Assistant"
 
+public Plugin myinfo =
+{
+	name = "[L4D2] Assistant",
+	author = "BHaType",
+	description = "Speed ups revie and healing process",
+	version = "1.0",
+	url = "https://github.com/Vinillia/l4d2_skills"
+};
+
 ConVar survivor_revive_duration;
 float survivor_revive_duration_base, g_flCost, g_flPower;
 int m_isDualWielding;

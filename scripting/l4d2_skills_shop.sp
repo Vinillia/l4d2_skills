@@ -6,6 +6,15 @@
 
 #include <l4d2_skills>
 
+public Plugin myinfo =
+{
+	name = "[L4D2] Skills Shop",
+	author = "BHaType",
+	description = "Simple shop module for skills",
+	version = "1.0",
+	url = "https://github.com/Vinillia/l4d2_skills"
+};
+
 enum struct Item
 {
 	char classname[36];

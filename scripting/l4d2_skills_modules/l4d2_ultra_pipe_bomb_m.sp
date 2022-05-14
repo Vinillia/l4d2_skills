@@ -11,6 +11,15 @@
 #define SKILL_NAME "Ultra Pipe Bomb"
 #define MAX_LEVELS 16
 
+public Plugin myinfo =
+{
+	name = "[L4D2] Ultra Pipe Bomb",
+	author = "BHaType",
+	description = "Spawns additional pipe bombs after throwing",
+	version = "1.0",
+	url = "https://github.com/Vinillia/l4d2_skills"
+};
+
 enum struct SkillContext
 {
 	int active_pipebombs;

@@ -22,6 +22,15 @@
 #define DEFAULT_MODEL "models/items/l4d_gift.mdl"
 #define DEFAULT_PICKUP_SOUND "ui/gift_pickup.wav"
 
+public Plugin myinfo =
+{
+	name = "[L4D2] Additional Buffs",
+	author = "BHaType",
+	description = "Creates gift after killing specials",
+	version = "1.0",
+	url = "https://github.com/Vinillia/l4d2_skills"
+};
+
 typedef BuffAction = function void( int owner, int picker, Buff buff );
 
 enum struct Buff

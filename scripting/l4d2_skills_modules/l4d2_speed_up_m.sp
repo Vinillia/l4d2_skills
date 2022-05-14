@@ -11,6 +11,15 @@
 #define SKILL_NAME "Speed Boost"
 #define MAX_LEVELS 16
 
+public Plugin myinfo =
+{
+	name = "[L4D2] Speed Boost",
+	author = "BHaType",
+	description = "Increases survivors speed",
+	version = "1.0",
+	url = "https://github.com/Vinillia/l4d2_skills"
+};
+
 enum struct ExportedInfo
 {
 	int numLevels;
@@ -95,8 +104,6 @@ public void Skills_OnGetSkillSettings( KeyValues kv )
 	
 	EXPORT_FLOAT_DEFAULT("cost", g_ExportedInfo.buyCost, 2500.0);
 	EXPORT_INT_DEFAULT("levels", g_ExportedInfo.numLevels, 4);
-	
-	EXPORT_END();
 
 	int costUpgrades = GetUpgradesCost(kv);
 	int speedPowers = GetSpeedPowersPerLevel(kv);
@@ -105,7 +112,9 @@ public void Skills_OnGetSkillSettings( KeyValues kv )
 		LOG("Warning: upgrade_costs and levels count mismatch %i != %i!", costUpgrades, g_ExportedInfo.numLevels);	
 		
 	if ( speedPowers != costUpgrades )
-		LOG("Warning: speed_addition and upgrade_costs count mismatch %i != %i!", speedPowers, costUpgrades);	
+		LOG("Warning: speed_addition and upgrade_costs count mismatch %i != %i!", speedPowers, costUpgrades);
+
+	EXPORT_END();
 }
 
 int GetUpgradesCost( KeyValues kv )

@@ -9,6 +9,15 @@
 
 #define SKILL_NAME "Double Jump"
 
+public Plugin myinfo =
+{
+	name = "[L4D2] Skills Double Jump",
+	author = "BHaType",
+	description = "Adds additional jump",
+	version = "1.0",
+	url = "https://github.com/Vinillia/l4d2_skills"
+};
+
 enum struct SkillContext
 {
 	int lastButtons;

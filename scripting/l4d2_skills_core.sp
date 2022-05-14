@@ -6,6 +6,15 @@
 
 #include <l4d2_skills>
 
+public Plugin myinfo =
+{
+	name = "[L4D2] Skills Core",
+	author = "BHaType",
+	description = "Main module of skills",
+	version = "1.0",
+	url = "https://github.com/Vinillia/l4d2_skills"
+};
+
 enum
 {
 	err_kName = 0x001,

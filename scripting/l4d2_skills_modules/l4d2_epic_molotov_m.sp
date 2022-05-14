@@ -11,6 +11,15 @@
 #define SKILL_NAME "Epic Molotov"
 #define MAX_LEVELS 16
 
+public Plugin myinfo =
+{
+	name = "[L4D2] Epic Molotov",
+	author = "BHaType",
+	description = "Spawns additional molotovs after throwing",
+	version = "1.0",
+	url = "https://github.com/Vinillia/l4d2_skills"
+};
+
 enum struct ExportedInfo
 {
 	int initialCount;

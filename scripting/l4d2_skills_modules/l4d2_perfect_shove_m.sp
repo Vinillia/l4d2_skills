@@ -9,6 +9,15 @@
 
 #define SKILL_NAME "Perfect Shove"
 
+public Plugin myinfo =
+{
+	name = "[L4D2] Perfect Shove",
+	author = "BHaType",
+	description = "Deals damage to shoved specials",
+	version = "1.0",
+	url = "https://github.com/Vinillia/l4d2_skills"
+};
+
 enum struct ExportedInfo
 {
 	float cost;

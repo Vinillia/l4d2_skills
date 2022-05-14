@@ -8,6 +8,15 @@
 #include <l4d2_skills>
 #include <left4dhooks>
 
+public Plugin myinfo =
+{
+	name = "[L4D2] Skills Job",
+	author = "BHaType",
+	description = "Gives player money for killing specials",
+	version = "1.0",
+	url = "https://github.com/Vinillia/l4d2_skills"
+};
+
 #define ZC_CLASSES 9
 
 enum struct ExportedInfo

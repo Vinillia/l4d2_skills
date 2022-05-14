@@ -9,6 +9,15 @@
 
 #define SKILL_NAME "Sleight of hand"
 
+public Plugin myinfo =
+{
+	name = "[L4D2] Sleight of hand",
+	author = "BHaType",
+	description = "Increases weapon reload and deploy speed",
+	version = "1.0",
+	url = "https://github.com/Vinillia/l4d2_skills"
+};
+
 bool g_bHaveSkill[MAXPLAYERS + 1];
 float g_flPower, g_flCost;
 int g_iID;

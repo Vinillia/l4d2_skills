@@ -6,6 +6,15 @@
 
 #include <l4d2_skills>
 
+public Plugin myinfo =
+{
+	name = "[L4D2] Skills Config",
+	author = "BHaType",
+	description = "Provides natives for exporting data from config",
+	version = "1.0",
+	url = "https://github.com/Vinillia/l4d2_skills"
+};
+
 KeyValues g_hSettings;
 GlobalForward g_hFwdOnGetSkillsSettings;
 bool g_bLateload;

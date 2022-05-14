@@ -9,6 +9,15 @@
 
 #define SKILL_NAME "Sticky Pipe Bombs"
 
+public Plugin myinfo =
+{
+	name = "[L4D2] Sticky Pipe Bombs",
+	author = "BHaType",
+	description = "Makes pipe boms stick world geometry",
+	version = "1.0",
+	url = "https://github.com/Vinillia/l4d2_skills"
+};
+
 float g_flCost;
 
 public void OnAllPluginsLoaded()
