@@ -13,12 +13,12 @@ All purchases remain until the new chapter begins.
   - `skills` - Open skills menu 
 
 ### Skills List
-- Addiditonal Buffs - Spawn gift with bonus after killing special infected (l4d2_additional_buffs)
-- Double Jump - Give additional jump (l4d2_double_jump_m)
-- Epic Molotov - Spawn additional molotovs after throw (l4d2_epic_molotov_m)
-- Perfect Shove - Deal damage to special or common infected after shove (l4d2_perfect_shove_m)
-- Assistant - Speed up revive and healing process (l4d2_revive_and_healing_m)
-- Sleight of hand - Speed up weapon reload and deploy (l4d2_sleight_of_hand_m)
-- Speed Boost - Increases walk speed (l4d2_speed_up_m)
-- Sticky Pipe Bombs - Makes pipeboms stick to world geometry (l4d2_sticky_pipe_bombs_m)
-- Ultra Pipe Bomb - Spawn additional pipe bombs after throw (l4d2_ultra_pipe_bomb_m)
+- Addiditonal Buffs - Spawn gift with bonus after killing special infected 
+- Double Jump - Give additional jump 
+- Epic Molotov - Spawn additional molotovs after throw 
+- Perfect Shove - Deal damage to special or common infected after shove 
+- Assistant - Speed up revive and healing process 
+- Sleight of hand - Speed up weapon reload and deploy 
+- Speed Boost - Increases walk speed 
+- Sticky Pipe Bombs - Makes pipeboms stick to world geometry 
+- Ultra Pipe Bomb - Spawn additional pipe bombs after throw 
