@@ -82,19 +82,20 @@ void AddMoneyWrapper( int client, float reward )
 
 public void Skills_OnGetSkillSettings( KeyValues kv )
 {
-	kv.Rewind();
-	kv.JumpToKey(SKILLS_GLOBALS, true);
+	EXPORT_START(SKILLS_GLOBALS);
 	
-	Skills_ExportFloat(kv, "smoker_reward", g_Export.bossesRewards[L4D2ZombieClass_Smoker], 60.0);
-	Skills_ExportFloat(kv, "boomer_reward", g_Export.bossesRewards[L4D2ZombieClass_Boomer], 35.0);
-	Skills_ExportFloat(kv, "hunter_reward", g_Export.bossesRewards[L4D2ZombieClass_Hunter], 45.0);
-	Skills_ExportFloat(kv, "spitter_reward", g_Export.bossesRewards[L4D2ZombieClass_Spitter], 35.0);
-	Skills_ExportFloat(kv, "jockey_reward", g_Export.bossesRewards[L4D2ZombieClass_Jockey], 100.0);
-	Skills_ExportFloat(kv, "charger_reward", g_Export.bossesRewards[L4D2ZombieClass_Charger], 150.0);
-	Skills_ExportFloat(kv, "witch_reward", g_Export.bossesRewards[L4D2ZombieClass_Witch], 500.0);
-	Skills_ExportFloat(kv, "tank_reward", g_Export.bossesRewards[L4D2ZombieClass_Tank], 1500.0);
+	EXPORT_FLOAT_DEFAULT("smoker_reward", g_Export.bossesRewards[L4D2ZombieClass_Smoker], 60.0);
+	EXPORT_FLOAT_DEFAULT("boomer_reward", g_Export.bossesRewards[L4D2ZombieClass_Boomer], 35.0);
+	EXPORT_FLOAT_DEFAULT("hunter_reward", g_Export.bossesRewards[L4D2ZombieClass_Hunter], 45.0);
+	EXPORT_FLOAT_DEFAULT("spitter_reward", g_Export.bossesRewards[L4D2ZombieClass_Spitter], 35.0);
+	EXPORT_FLOAT_DEFAULT("jockey_reward", g_Export.bossesRewards[L4D2ZombieClass_Jockey], 100.0);
+	EXPORT_FLOAT_DEFAULT("charger_reward", g_Export.bossesRewards[L4D2ZombieClass_Charger], 150.0);
+	EXPORT_FLOAT_DEFAULT("witch_reward", g_Export.bossesRewards[L4D2ZombieClass_Witch], 500.0);
+	EXPORT_FLOAT_DEFAULT("tank_reward", g_Export.bossesRewards[L4D2ZombieClass_Tank], 1500.0);
 	
-	Skills_ExportFloat(kv, "witch_one_shot_reward", g_Export.witchOneshotReward, 1000.0);
-	Skills_ExportFloat(kv, "team_reward_factor", g_Export.team_reward_factor, 0.5);
-	Skills_ExportInt(kv, "print_reward", g_Export.print, 1);
+	EXPORT_FLOAT_DEFAULT("witch_one_shot_reward", g_Export.witchOneshotReward, 1000.0);
+	EXPORT_FLOAT_DEFAULT("team_reward_factor", g_Export.team_reward_factor, 0.5);
+	EXPORT_INT_DEFAULT("print_reward", g_Export.print, 1);
+
+	EXPORT_END();
 }
