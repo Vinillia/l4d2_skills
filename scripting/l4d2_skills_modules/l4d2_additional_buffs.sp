@@ -18,6 +18,8 @@
 #define ROTATION_SPEED 1.0
 #define PICKUP_RADIUS 50.0
 
+#define THINK_INVERVAL 0.3
+
 #define MYEXPORT "Additional Buffs"
 #define DEFAULT_MODEL "models/items/l4d_gift.mdl"
 #define DEFAULT_PICKUP_SOUND "ui/gift_pickup.wav"
@@ -170,10 +172,10 @@ public Action sm_additional_buffers_test(int client, int args)
 	int count = GetCmdArgInt(1), nothing;
 	Buff buff;
 
-	if(count > 500)
+	if ( !count || count > 500 )
 		count = 500;
 	
-	Skills_ReplyToCommand(client, "Start test for %i iterations(%i)", count, g_iBuffsCount);
+	Skills_ReplyToCommand(client, "Start test for %i iterations, buffs count %i", count, g_iBuffsCount);
 
 	for(int i; i < count; i++)
 	{
@@ -220,9 +222,9 @@ public void player_death( Event event, const char[] name, bool noReplicate )
 	if ( !attacker || attacker > MaxClients || !IsClientInGame(attacker) || GetClientTeam(attacker) != 2 )
 		return;
 	
-	if( DispatchSpawnBuff(attacker, client, GetRandomBuff()) )
+	if ( DispatchSpawnBuff(attacker, client, GetRandomBuff()) )
 	{
-		
+		// hehe
 	}
 }
 
@@ -231,7 +233,7 @@ void StartThink()
 	if (g_hThink)
 		return;
 
-	g_hThink = CreateTimer(0.3, timer_think_buffs, .flags = TIMER_REPEAT);
+	g_hThink = CreateTimer(THINK_INVERVAL, timer_think_buffs, .flags = TIMER_REPEAT);
 }
 
 public Action timer_think_buffs(Handle timer)
@@ -420,16 +422,16 @@ void RemoveGameBuff(int schedule, bool removeEntity = true)
 
 	BuffsSchedule nullschedule;
 	int i = g_iCurrentBuffs - 1;
-	
+
 	if (schedule != i)
 	{
-		for(int k = schedule; k <= i; k++)
+		for(int k = schedule; k < i; k++)
 		{
 			g_Schedule[k] = g_Schedule[k + 1];
 		}
 	}
 
-	g_Schedule[i + 1] = nullschedule;
+	g_Schedule[i] = nullschedule;
 	g_iCurrentBuffs--;
 }
 
@@ -533,8 +535,17 @@ public void OnMoneyMultiplier(int owner, int picker, Buff buff)
 	Skills_SetClientMoneyMultiplier(picker, GetRandomFloat(min, max));
 }
 
+public void OnMoneyBonus(int owner, int picker, Buff buff)
+{
+	float min = g_SettingsManager.GetValue("money_min_bonus");
+	float max = g_SettingsManager.GetValue("money_max_bonus");
+	Skills_AddClientMoney(picker, GetRandomFloat(min, max), false, true);
+}
+
 public void Skills_OnGetSkillSettings( KeyValues kv )
 {
+	g_iBuffsCount = 0;
+	
 	EXPORT_START(MYEXPORT);
 
 	EXPORT_SECTION_START("Regeneration")
@@ -562,9 +573,17 @@ public void Skills_OnGetSkillSettings( KeyValues kv )
 
 	EXPORT_SECTION_START("Money Multiplier")
 	{
-		CreateBuffFromKV(kv, "MoneyMultiplier", OnMoneyMultiplier);
+		CreateBuffFromKV(kv, "Money Multiplier", OnMoneyMultiplier);
 		g_SettingsManager.ExportFloat(kv, "money_min_multiplier", 1.05);
 		g_SettingsManager.ExportFloat(kv, "money_max_multiplier", 3.00);
+		EXPORT_SECTION_END()
+	}
+
+	EXPORT_SECTION_START("Money Bonus")
+	{
+		CreateBuffFromKV(kv, "Money Bonus", OnMoneyBonus);
+		g_SettingsManager.ExportFloat(kv, "money_min_bonus", 150.0);
+		g_SettingsManager.ExportFloat(kv, "money_max_bonus", 400.0);
 		EXPORT_SECTION_END()
 	}
 

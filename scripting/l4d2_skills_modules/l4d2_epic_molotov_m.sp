@@ -117,9 +117,9 @@ public void Skills_OnGetSkillSettings( KeyValues kv )
 	EXPORT_FLOAT_DEFAULT("max_scale", g_ExportedInfo.maxScale, 1.2);
 	EXPORT_FLOAT_DEFAULT("power", g_ExportedInfo.power, 750.0);
 	
-	EXPORT_END();
-
 	GetUpgradeCostsLevels(kv);
+
+	EXPORT_END();
 }
 
 void GetUpgradeCostsLevels( KeyValues kv )
