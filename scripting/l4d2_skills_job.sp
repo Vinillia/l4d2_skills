@@ -13,7 +13,7 @@ public Plugin myinfo =
 	name = "[L4D2] Skills Job",
 	author = "BHaType",
 	description = "Gives player money for killing specials",
-	version = "1.0",
+	version = "1.1",
 	url = "https://github.com/Vinillia/l4d2_skills"
 };
 

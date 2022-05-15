@@ -11,7 +11,7 @@ public Plugin myinfo =
 	name = "[L4D2] Skills Menu",
 	author = "BHaType",
 	description = "Provides menu API for skills",
-	version = "1.0",
+	version = "1.1",
 	url = "https://github.com/Vinillia/l4d2_skills"
 };
 
