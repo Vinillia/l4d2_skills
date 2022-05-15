@@ -13,6 +13,7 @@ All purchases remain until the new chapter begins.
   - `skills` - Open skills menu 
 
 ### Skills List
+- Satellite Magnum - Give you ability to use satellite via magnum
 - Addiditonal Buffs - Spawn gift with bonus after killing special infected 
 - Double Jump - Give additional jump 
 - Epic Molotov - Spawn additional molotovs after throw 
@@ -22,3 +23,4 @@ All purchases remain until the new chapter begins.
 - Speed Boost - Increases walk speed 
 - Sticky Pipe Bombs - Makes pipeboms stick to world geometry 
 - Ultra Pipe Bomb - Spawn additional pipe bombs after throw 
+- Resistance - Absorbs damage from specials and teammates
