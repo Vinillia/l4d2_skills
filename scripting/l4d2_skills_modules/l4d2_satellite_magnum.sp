@@ -98,7 +98,8 @@ public void OnPluginStart()
 	g_hMenu.AddItem("", "Freeze");
 	g_hMenu.SetTitle("Choose satellite type:");
 
-	RegConsoleCmd("sm_change_satellite", sm_change_satellite);
+	RegConsoleCmd("sm_satellite_change", sm_satellite_change);
+	RegConsoleCmd("sm_satellite_info", sm_satellite_info);
 
 	HookEvent("weapon_fire", weapon_fire);
 }
@@ -153,7 +154,15 @@ public void OnMapStart()
 	g_iGlowMaterial = PrecacheModel("materials/sprites/glow01.vmt");
 }
 
-public Action sm_change_satellite(int client, int args)
+public Action sm_satellite_info(int client, int args)
+{
+	Skills_ReplyToCommand(client, "\x04Satellite Freeze\x01: \x04cooldown \x01- \x05%.0f\x01, \x04radius \x01- \x04%.0f\x01, \x04duration \x01 - \x04%.0f", g_Export.freeze_cooldown, g_Export.freeze_radius, g_Export.freeze_duration);
+	Skills_ReplyToCommand(client, "\x04Satellite Judgement\x01: \x04cooldown \x01- \x05%.0f\x01, \x04radius \x01- \x04%.0f\x01, \x04damage \x01- \x04%.0f", g_Export.judgement_cooldown, g_Export.judgement_radius, g_Export.judgement_damage_specials);
+	Skills_ReplyToCommand(client, "\x04Satellite Freeze\x01: \x04cooldown \x01- \x05%.0f\x01, \x04radius \x01- \x04%.0f\x01, \x04damage \x01- \x04%.0f", g_Export.inferno_cooldown, g_Export.inferno_radius, g_Export.inferno_damage_specials);
+	return Plugin_Handled;
+}
+
+public Action sm_satellite_change(int client, int args)
 {
 	if (!IsHaveSkill(client))
 	{
@@ -592,6 +601,22 @@ void ScreenFade(int target, int red, int green, int blue, int alpha, int duratio
 	BfWriteByte(msg, blue);
 	BfWriteByte(msg, alpha);
 	EndMessage();
+}
+
+public void Skills_OnSkillStateChanged(int client, int id, SkillState state)
+{
+	if (g_iID != id)
+		return;
+
+	if (state == SS_PURCHASED)
+	{
+		int weapon = GetPlayerWeaponSlot(client, 1);
+
+		if (weapon == -1 || !ClassMatchesComplex(weapon, "weapon_pistol_magnum"))
+			GivePlayerItem(client, "weapon_pistol_magnum");
+
+		Skills_PrintToChat(client, "Use !sm_change_satellite to change satellite type");
+	}
 }
 
 bool IsHaveSkill( int client )
