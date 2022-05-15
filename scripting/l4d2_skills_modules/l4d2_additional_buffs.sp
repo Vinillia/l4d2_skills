@@ -11,13 +11,6 @@
 #define MAX_BUFFS_AT_ONCE 8
 #define MAX_BUFF_NAME 64
 
-#define FLY_OFFSET 18.0
-#define FLY_SPEED_BASE 0.25
-
-#define GLOW_COLOR_TIMER 0.5
-#define ROTATION_SPEED 1.0
-#define PICKUP_RADIUS 50.0
-
 #define THINK_INVERVAL 0.3
 
 #define MYEXPORT "Additional Buffs"
@@ -29,7 +22,7 @@ public Plugin myinfo =
 	name = "[L4D2] Additional Buffs",
 	author = "BHaType",
 	description = "Creates gift after killing specials",
-	version = "1.0",
+	version = "1.1",
 	url = "https://github.com/Vinillia/l4d2_skills"
 };
 
@@ -68,7 +61,11 @@ enum struct Globals
 {
 	float nothing;
 	float weight;
-
+	float gift_glow_color_transfusion;
+	float gift_fly_offset;
+	float gift_speed;
+	float gift_pickup_radius;
+	float gift_rotation_speed;
 	bool print;
 	bool stealing;
 }
@@ -312,7 +309,7 @@ public void OnGameFrame()
 
 		GetEntPropVector(entity, Prop_Data, "m_angRotation", vAngles); 
 
-		vAngles[1] += ROTATION_SPEED;
+		vAngles[1] += globals.gift_rotation_speed;
 		vOrigin = g_Schedule[i].initialOrigin; 
 		vOrigin[2] += offset;
 
@@ -342,14 +339,14 @@ bool IsClientWithinRadius( int client, const float source[3] )
 {
 	float vOrigin[3];
 	GetClientEyePosition(client, vOrigin);
-	return GetVectorDistance(vOrigin, source) <= PICKUP_RADIUS;
+	return GetVectorDistance(vOrigin, source) <= globals.gift_pickup_radius;
 }
 
 int GetGlowColor()
 {
 	static int color[3];
 
-	float curtime = GetGameTime() * GLOW_COLOR_TIMER;
+	float curtime = GetGameTime() * globals.gift_glow_color_transfusion;
 	color[0] = RoundToNearest(Cosine(curtime + 90) * 100 + 100);
 	color[1] = RoundToNearest(Cosine(curtime + 180) * 100 + 100);
 	color[2] = RoundToNearest(Cosine(curtime + 270) * 100 + 100);
@@ -362,14 +359,14 @@ float GetFlyOffset()
 	static float offs;
 	static bool down;
 
-	offs = !down ? offs + FLY_SPEED_BASE : offs - FLY_SPEED_BASE;
+	offs = !down ? offs + globals.gift_speed : offs - globals.gift_speed;
 
-	float factor = (FLY_OFFSET - FloatAbs(offs)) / FLY_OFFSET; 
+	float factor = (globals.gift_fly_offset - FloatAbs(offs)) / globals.gift_fly_offset; 
 	factor++;
 
-	if (offs >= FLY_OFFSET)
+	if (offs >= globals.gift_fly_offset)
 		down = true;
-	else if(offs <= -FLY_OFFSET)
+	else if(offs <= -globals.gift_fly_offset)
 		down = false;
 
 	return offs * factor;
@@ -542,6 +539,48 @@ public void OnMoneyBonus(int owner, int picker, Buff buff)
 	Skills_AddClientMoney(picker, GetRandomFloat(min, max), false, true);
 }
 
+public void OnWitchBox(int owner, int picker, Buff buff)
+{
+	float vOrigin[3];
+	int min = g_SettingsManager.GetValue("witch_min_count");
+	int max = g_SettingsManager.GetValue("witch_max_count");
+	int count = GetRandomInt(min, max);
+
+	for(int i; i < count; i++)
+	{
+		if (L4D_GetRandomPZSpawnPosition(picker, 7, 5, vOrigin))
+		{
+			L4D2_SpawnWitch(vOrigin, {0.0, 0.0, 0.0});
+		}
+	}
+}
+
+public void OnSpecialBox(int owner, int picker, Buff buff)
+{
+	float vOrigin[3];
+	int min = g_SettingsManager.GetValue("specials_min_count");
+	int max = g_SettingsManager.GetValue("specials_max_count");
+	int count = GetRandomInt(min, max);
+	
+	for(int i; i < count; i++)
+	{
+		int class = GetRandomInt(1, 6);
+		if (L4D_GetRandomPZSpawnPosition(picker, class, 5, vOrigin))
+		{
+			L4D2_SpawnSpecial(class, vOrigin, {0.0, 0.0, 0.0});
+		}
+	}
+}
+
+public void OnTankBox(int owner, int picker, Buff buff)
+{
+	float vOrigin[3];
+	if (L4D_GetRandomPZSpawnPosition(picker, 8, 5, vOrigin))
+	{
+		L4D2_SpawnTank(vOrigin, {0.0, 0.0, 0.0});
+	}
+}
+
 public void Skills_OnGetSkillSettings( KeyValues kv )
 {
 	g_iBuffsCount = 0;
@@ -555,20 +594,20 @@ public void Skills_OnGetSkillSettings( KeyValues kv )
 		g_SettingsManager.ExportInt(kv, "regen_add", 1);
 		g_SettingsManager.ExportFloat(kv, "regen_interval", 0.25);
 		g_SettingsManager.ExportFloat(kv, "regen_duration", 3.25);
-		EXPORT_SECTION_END()
+		EXPORT_SECTION_END();
 	}
 
 	EXPORT_SECTION_START("Teleport")
 	{
 		CreateBuffFromKV(kv, "Teleport", OnTeleport);
 		g_SettingsManager.ExportInt(kv, "teleport_allow_backward", 1);
-		EXPORT_SECTION_END()
+		EXPORT_SECTION_END();
 	}
 
 	EXPORT_SECTION_START("RefillAmmo")
 	{
 		CreateBuffFromKV(kv, "Refill Ammo", OnAmmo);
-		EXPORT_SECTION_END()
+		EXPORT_SECTION_END();
 	}
 
 	EXPORT_SECTION_START("Money Multiplier")
@@ -576,7 +615,7 @@ public void Skills_OnGetSkillSettings( KeyValues kv )
 		CreateBuffFromKV(kv, "Money Multiplier", OnMoneyMultiplier);
 		g_SettingsManager.ExportFloat(kv, "money_min_multiplier", 1.05);
 		g_SettingsManager.ExportFloat(kv, "money_max_multiplier", 3.00);
-		EXPORT_SECTION_END()
+		EXPORT_SECTION_END();
 	}
 
 	EXPORT_SECTION_START("Money Bonus")
@@ -584,12 +623,39 @@ public void Skills_OnGetSkillSettings( KeyValues kv )
 		CreateBuffFromKV(kv, "Money Bonus", OnMoneyBonus);
 		g_SettingsManager.ExportFloat(kv, "money_min_bonus", 150.0);
 		g_SettingsManager.ExportFloat(kv, "money_max_bonus", 400.0);
-		EXPORT_SECTION_END()
+		EXPORT_SECTION_END();
+	}
+
+	EXPORT_SECTION_START("Witch")
+	{
+		CreateBuffFromKV(kv, "Witch", OnWitchBox);
+		g_SettingsManager.ExportInt(kv, "witch_min_count", 1);
+		g_SettingsManager.ExportInt(kv, "witch_max_count", 5);
+		EXPORT_SECTION_END();
+	}
+
+	EXPORT_SECTION_START("Tank")
+	{
+		CreateBuffFromKV(kv, "Tank", OnTankBox);
+		EXPORT_SECTION_END();
+	}
+
+	EXPORT_SECTION_START("Special")
+	{
+		CreateBuffFromKV(kv, "Special", OnSpecialBox);
+		g_SettingsManager.ExportInt(kv, "specials_min_count", 1);
+		g_SettingsManager.ExportInt(kv, "specials_max_count", 3);
+		EXPORT_SECTION_END();
 	}
 
 	EXPORT_INT_DEFAULT("print", globals.print, 1);
 	EXPORT_INT_DEFAULT("stealing", globals.stealing, 1);
-	EXPORT_FLOAT_DEFAULT("chance_of_nothing", globals.nothing, 5.0);
+	EXPORT_FLOAT_DEFAULT("gift_glow_color_transfusion", globals.gift_glow_color_transfusion, 1.0);
+	EXPORT_FLOAT_DEFAULT("gift_fly_offset", globals.gift_fly_offset, 20.0);
+	EXPORT_FLOAT_DEFAULT("gift_speed", globals.gift_speed, 5.0);
+	EXPORT_FLOAT_DEFAULT("gift_pickup_radius", globals.gift_pickup_radius, 125.0);
+	EXPORT_FLOAT_DEFAULT("gift_rotation_speed", globals.gift_rotation_speed, 2.0);
+	
 	EXPORT_END();
 
 	GetBuffsWeight();

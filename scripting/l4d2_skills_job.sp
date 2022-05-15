@@ -43,14 +43,12 @@ public void OnAllPluginsLoaded()
 public Action sm_skills_job_info( int client, int args )
 {
 	Skills_PrintToChat(client, "Reward for \x04witch \x01oneshot: \x03%.0f", g_Export.witchOneshotReward);
-	Skills_PrintToChat(client, "Team \x04reward \x01factor: \x03%.2f", g_Export.team_reward_factor);
-	
 	Skills_PrintToChat(client, "Boss rewards:\n" ...											\
-	"\x04Smoker: \x03%.0f\x01, \x04Booomer: \x03%.0f\x01, \x04Hunter: \x03%.0f\x01, \n" ...	\
+	"\x04Smoker: \x03%.0f\x01, \x04Booomer: \x03%.0f\x01, \x04Hunter: \x03%.0f\x01, \n" ...		\
 	"\x04Spitter: \x03%.0f\x01, \x04Jockey: \x03%.0f\x01, \x04Charger: \x03%.0f\x01, \n" ...	\
-	"\x04Witch: \x03%.0f\x01, \x04Tank: \x03%.0f",											\
-	g_Export.bossesRewards[1], g_Export.bossesRewards[2], g_Export.bossesRewards[3],				\
-	g_Export.bossesRewards[4], g_Export.bossesRewards[5], g_Export.bossesRewards[6],				\
+	"\x04Witch: \x03%.0f\x01, \x04Tank: \x03%.0f",												\
+	g_Export.bossesRewards[1], g_Export.bossesRewards[2], g_Export.bossesRewards[3],			\
+	g_Export.bossesRewards[4], g_Export.bossesRewards[5], g_Export.bossesRewards[6],			\
 	g_Export.bossesRewards[7], g_Export.bossesRewards[8]);
 	return Plugin_Handled;
 }
@@ -85,8 +83,8 @@ public void player_death( Event event, const char[] name, bool noReplicate )
 
 void AddMoneyWrapper( int client, float reward )
 {
-	Skills_AddClientMoney(client, reward, .print = g_Export.print);
-	Skills_AddTeamMoney(reward * g_Export.team_reward_factor);
+	Skills_AddClientMoney(client, reward, false, g_Export.print);
+	Skills_AddTeamMoney(reward);
 }
 
 public void Skills_OnGetSkillSettings( KeyValues kv )
@@ -103,7 +101,6 @@ public void Skills_OnGetSkillSettings( KeyValues kv )
 	EXPORT_FLOAT_DEFAULT("tank_reward", g_Export.bossesRewards[L4D2ZombieClass_Tank], 1500.0);
 	
 	EXPORT_FLOAT_DEFAULT("witch_one_shot_reward", g_Export.witchOneshotReward, 1000.0);
-	EXPORT_FLOAT_DEFAULT("team_reward_factor", g_Export.team_reward_factor, 0.5);
 	EXPORT_INT_DEFAULT("print_reward", g_Export.print, 1);
 
 	EXPORT_END();

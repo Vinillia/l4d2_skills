@@ -154,11 +154,11 @@ void ShowClientSkillMenu( int client )
 	{
 		int count = g_NativeItems.items.Length;
 		ItemInfo info;
-		
+
 		for( int i; i < count; i++ )
 		{
 			g_NativeItems.GetItem(i, info);
-				
+
 			FormatEx(item, sizeof item, "__plNative__%i", i);
 			FormatEx(display, sizeof display, "%s", info.display);
 			menu.AddItem(item, display);
@@ -235,9 +235,10 @@ void ShowClientSkills( int client )
 
 void ShowSkills( int client, SkillType type )
 {
-	char buffer[MAX_SKILL_NAME_LENGTH], temp[4];
+	char buffer[MAX_SKILL_NAME_LENGTH + 12], temp[4];
 	int count = Skills_GetCount(), style;
 	bool have;
+	float cost;
 	
 	Menu menu = new Menu(VSkillsHandler);
 	
@@ -247,7 +248,13 @@ void ShowSkills( int client, SkillType type )
 		
 		if ( Skills_GetType(buffer) != type )
 			continue;
-		
+			
+		if ( !Skills_ExportFloatByName(buffer, "cost", cost, 0.0) )
+		{
+			ERROR("Failed to get cost for skill %s (%i)", buffer, i);
+			continue;
+		}
+
 		style = ITEMDRAW_DEFAULT;
 		
 		IntToString(i, temp, sizeof temp);
@@ -255,7 +262,8 @@ void ShowSkills( int client, SkillType type )
 		
 		if ( have )
 			style = ITEMDRAW_DISABLED;
-			
+		
+		Format(buffer, sizeof buffer, "%s - %.0f", buffer, cost);
 		menu.AddItem(temp, buffer, style);
 	}
 	
@@ -404,7 +412,7 @@ public int VSkillsHandler( Menu menu, MenuAction action, int client, int id )
 			}
 			
 			Skills_SetClientMoney(client, money - cost);
-			Skills_ChangeState(client, id, true);
+			Skills_ChangeState(client, id, SS_PURCHASED);
 			Skills_PrintToChatAll("\x04%N \x05bought \x03%s", client, skill);
 			sm_skills(client, 0);
 		}
@@ -503,7 +511,7 @@ public int VMenuUpgradeHandler( Menu menu, MenuAction action, int client, int in
 			}
 			
 			Skills_SetClientMoney(client, money - cost);
-			Skills_ChangeState(client, index, true);
+			Skills_ChangeState(client, index, SS_UPGRADED);
 			Skills_PrintToChat(client, "\x05You have \x04upgraded \x03%s", name);
 			ShowClientSkills(client);
 		}

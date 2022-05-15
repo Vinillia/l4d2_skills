@@ -51,6 +51,11 @@ ExportedInfo g_ExportedInfo;
 SkillContext g_PlayerSkill[MAXPLAYERS + 1];
 int g_iID = -1;
 
+public void OnPluginStart()
+{
+	HookEvent("grenade_bounce", grenade_bounce);
+}
+
 public void OnAllPluginsLoaded()
 {
 	g_iID = Skills_Register(SKILL_NAME, ST_ACTIVATION, true);
@@ -60,8 +65,6 @@ public void OnAllPluginsLoaded()
 		LOG("Warning: too many levels, clamped (%i > %i)!", g_ExportedInfo.numLevels, MAX_LEVELS);
 		g_ExportedInfo.numLevels = MAX_LEVELS;
 	}
-	
-	HookEvent("grenade_bounce", grenade_bounce);
 }
 
 public void grenade_bounce( Event event, const char[] name, bool noReplicate )

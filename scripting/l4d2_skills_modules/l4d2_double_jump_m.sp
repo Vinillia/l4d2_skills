@@ -46,7 +46,6 @@ public Action OnPlayerRunCmd( int client, int &buttons, int &impulse, float vel[
 {
 	if ( g_bHaveSkill[client] )
 	{
-		
 		Jump(client);
 	}
 	

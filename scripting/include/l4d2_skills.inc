@@ -25,7 +25,7 @@
 #define EXPORT_END() KeyValueExportToFile(kv)
 
 #define EXPORT_SECTION_START(%1) if (kv.JumpToKey(%1, true))
-#define EXPORT_SECTION_END() kv.GoBack();
+#define EXPORT_SECTION_END() kv.GoBack()
 
 #define EXPORT_INT_DEFAULT(%1,%2,%3) Skills_ExportInt(kv, %1, %2, %3)
 #define EXPORT_FLOAT_DEFAULT(%1,%2,%3) Skills_ExportFloat(kv, %1, %2, %3)
@@ -290,16 +290,14 @@ native bool Skills_ClientHaveByID(  int client, int id );
 
 /**
  * @brief Changes skill state
- * @remarks If client already has skill then skill will be upgraded if can be 
- * @remarks Pass false to disable skill  
  *
  * @param client	Client index
  * @param id		Skill ID
- * @param bool		State
+ * @param state		New skill state (See SkillState)
  *
  * @noreturn
  */
-native void Skills_ChangeState( int client, int id, bool state );
+native void Skills_ChangeState( int client, int id, SkillState state );
 
 /**
  * @brief Returns default upgrade menu
@@ -566,7 +564,7 @@ stock void ExecuteCheatCommand(int client, const char[] command, const char[] ar
 {
 	int flags = GetCommandFlags(command);
 	SetCommandFlags(command, flags & ~FCVAR_CHEAT);
-	FakeClientCommandEx(client, "%s %s", command, arg);
+	FakeClientCommand(client, "%s %s", command, arg);
 	SetCommandFlags(command, flags);
 }
 

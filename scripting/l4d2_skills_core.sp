@@ -133,7 +133,7 @@ enum struct Economy
 enum struct PlayerSkills
 {
 	int count;
-	char skill[MAX_SKILLS_COUNT];
+	bool skill[MAX_SKILLS_COUNT];
 }
 
 enum struct PlayerInfo
@@ -262,7 +262,7 @@ public any NAT_Skills_ChangeState(Handle plugin, int numparams)
 {
 	int client = GetNativeCell(1);
 	int id = GetNativeCell(2);
-	bool state = GetNativeCell(3);
+	SkillState state = GetNativeCell(3);
 	
 	SetClientSkillState(client, id, state);
 	return 0;
@@ -378,8 +378,10 @@ public void OnPluginStart()
 	g_teamEconomy.multiplier = 1.0;
 	
 	RegAdminCmd("sm_skills_give_money", sm_skills_give_money, ADMFLAG_RCON);
+	RegAdminCmd("sm_skills_give_team_money", sm_skills_give_team_money, ADMFLAG_RCON);
 	RegAdminCmd("sm_skills_give_skill", sm_skills_give_skill, ADMFLAG_RCON);
 	RegAdminCmd("sm_skills_list", sm_skills_list, ADMFLAG_RCON);
+	RegAdminCmd("sm_skills_update", sm_skills_update, ADMFLAG_ROOT);
 	
 	NotifySkillCoreStart();
 }
@@ -391,21 +393,7 @@ public void OnAllPluginsLoaded()
 
 public void OnMapStart()
 {
-	bool firstMap;
-	
-	if ( GetFeatureStatus(FeatureType_Native, "L4D_IsFirstMapInScenario") == FeatureStatus_Available )
-	{
-		firstMap = L4D_IsFirstMapInScenario();
-	}
-	else
-	{
-		char szMap[36];
-		GetCurrentMap(szMap, sizeof szMap);
-		
-		firstMap = StrContains(szMap, "m1") != -1;
-	}
-	
-	if ( firstMap )
+	if ( L4D_IsFirstMapInScenario() )
 	{
 		char name[MAX_SKILL_NAME_LENGTH];
 		Function Skills_OnSkillStateReset;
@@ -429,11 +417,32 @@ public void OnMapStart()
 			if ( result > Plugin_Continue )
 				continue;
 			
-			SetClientSkillStateForAll(i, false);
+			SetClientSkillStateForAll(i, SS_NULL);
 		}
 		
 		NotifySkillStateReset();
 	}
+}
+
+public Action sm_skills_update( int client, int args )
+{
+	NotifySkillCoreStart();
+	NotifySkillCoreLoaded();
+	return Plugin_Handled;
+}
+
+public Action sm_skills_give_team_money( int client, int args )
+{
+	if ( args < 1 )
+	{
+		Skills_ReplyToCommand(client, "Usage: !sm_skills_give_team_money <amount>");
+		return Plugin_Handled;
+	}
+	
+	float add = float(GetCmdArgInt(1));
+	g_teamEconomy.AddMoney(add);
+	Skills_PrintToChat(client, "\x01Added \x04%.0f \x01to team money", add);
+	return Plugin_Handled;
 }
 
 public Action sm_skills_give_money( int client, int args )
@@ -452,7 +461,7 @@ public Action sm_skills_give_money( int client, int args )
 	
 	add = StringToFloat(szAdd);
 	
-	int target = FindTarget(client, szTarget, true);
+	int target = FindTarget(client, szTarget, true, false);
 	
 	if ( target == -1 )
 	{
@@ -487,7 +496,7 @@ public Action sm_skills_give_skill( int client, int args )
 
 	g_Skills.GetName(id, name);
 	
-	int target = FindTarget(client, szTarget, true);
+	int target = FindTarget(client, szTarget, true, false);
 	
 	if ( target == -1 )
 	{
@@ -495,7 +504,7 @@ public Action sm_skills_give_skill( int client, int args )
 		return Plugin_Handled;
 	}
 	
-	SetClientSkillState(target, id, true);
+	SetClientSkillState(target, id, SS_PURCHASED);
 	Skills_PrintToChatAll("\x05%N \x04gave \x05%N \x04skill \x03%%s", client, target, name);
 	return Plugin_Handled;
 }
@@ -532,11 +541,11 @@ public void Skills_OnSkillStateChangedFrame( int id )
 		if ( !IsClientInGame(i) || IsFakeClient(i) )
 			continue;
 				
-		SetClientSkillState(i, id, GetClientSkillState(i, id));
+		NotifySkillStateChanged(i, id, GetClientSkillState(i, id) ? SS_PURCHASED : SS_NULL);
 	}
 }
 
-void SetClientSkillStateForAll( int id, bool state )
+void SetClientSkillStateForAll( int id, SkillState state )
 {
 	for( int i = 1; i <= MaxClients; i++ )
 	{
@@ -547,9 +556,9 @@ void SetClientSkillStateForAll( int id, bool state )
 	}
 }
 
-void SetClientSkillState( int client, int id, bool state )
+void SetClientSkillState( int client, int id, SkillState state )
 {
-	g_PlayersInfo[client].skills.skill[id] = view_as<char>(state);
+	g_PlayersInfo[client].skills.skill[id] = state == SS_NULL ? false : true;
 	NotifySkillStateChanged(client, id, state);
 }
 
@@ -574,16 +583,8 @@ void NotifySkillRegistered( const char[] name, int id )
 	Call_Finish();
 }
 
-void NotifySkillStateChanged( int client, int id, bool stateAction )
+void NotifySkillStateChanged( int client, int id, SkillState state )
 {
-	bool currentState = GetClientSkillState(client, id);
-	SkillState state = SS_NULL;
-		
-	if ( stateAction )
-	{
-		state = !currentState ? SS_UPGRADED : SS_PURCHASED;
-	}
-	
 	Call_StartForward(g_hFwdOnSkillsStateChanged);
 	Call_PushCell(client);
 	Call_PushCell(id);

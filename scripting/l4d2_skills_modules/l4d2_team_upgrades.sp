@@ -5,6 +5,7 @@
 #include <sdktools>
 
 #include <l4d2_skills>
+#include <left4dhooks>
 
 #define MY_EXPORT_NAME "Team Upgrades"
 
@@ -20,7 +21,7 @@ public Plugin myinfo =
 	url = "https://github.com/Vinillia/l4d2_skills"
 };
 
-typedef UpgradeAction = function void(int buyer); 
+typedef UpgradeAction = function bool(int buyer); 
 
 enum struct SettingsManager
 {
@@ -68,12 +69,33 @@ TeamUpgrade g_TeamUpgrades[MAX_UPGRADES];
 int g_iUpgradesCount;
 
 SettingsManager g_SettingsManager;
+ConVar survivor_crouch_speed;
+float survivor_crouch_speed_default;
+bool g_bAirdropAvailable;
+
+native bool CreateAirdrop( const float vOrigin[3], const float vAngles[3], int initiator = 0, bool trace_to_sky = true );
 
 public void OnPluginStart()
 {
 	g_SettingsManager.settings = new StringMap();
+	
+	survivor_crouch_speed = FindConVar("survivor_crouch_speed");
+	survivor_crouch_speed_default = survivor_crouch_speed.FloatValue;
 
 	RegAdminCmd("sm_teamupgrades_invoke", sm_teamupgrades_invoke, ADMFLAG_CHEATS);
+}
+
+public void OnAllPluginsLoaded()
+{
+	g_bAirdropAvailable = GetFeatureStatus(FeatureType_Native, "CreateAirdrop") == FeatureStatus_Available;
+
+	Skills_AddMenuItem("skills_team_upgrades", "Team Upgrades", ItemMenuCallback);
+	Skills_RequestConfigReload();
+}
+
+public void OnPluginEnd()
+{
+	survivor_crouch_speed.FloatValue = survivor_crouch_speed_default;
 }
 
 public Action sm_teamupgrades_invoke( int client, int args )
@@ -94,12 +116,6 @@ public Action sm_teamupgrades_invoke( int client, int args )
 	return Plugin_Handled;
 }
 
-public void OnAllPluginsLoaded()
-{
-	Skills_AddMenuItem("skills_team_upgrades", "Team Upgrades", ItemMenuCallback);
-	Skills_RequestConfigReload();
-}
-
 public void ItemMenuCallback( int client, const char[] item )
 {
 	ShowClientShop(client);
@@ -108,14 +124,16 @@ public void ItemMenuCallback( int client, const char[] item )
 void ShowClientShop( int client, int selection = 0 )
 {
 	Menu menu = new Menu(VMenuHandler);
-	char temp[4];
+	char buffer[64], temp[4];
 
 	for(int i; i < g_iUpgradesCount; i++)
 	{
 		IntToString(i, temp, sizeof temp);
-		menu.AddItem(temp, g_TeamUpgrades[i].name);
+		Format(buffer, sizeof buffer, "%s - %.0f", g_TeamUpgrades[i].name, g_TeamUpgrades[i].cost);
+		menu.AddItem(temp, buffer);
 	}
 
+	menu.ExitBackButton = true;
 	menu.ExitButton = true;
 	menu.SetTitle("Skills: Shop");
 	menu.DisplayAt(client, selection, MENU_TIME_FOREVER);
@@ -150,7 +168,11 @@ public int VMenuHandler( Menu menu, MenuAction action, int client, int index )
 				return 0;
 			}
 
-			InvokeUpgradeAction(upgradeID, client);
+			if (!InvokeUpgradeAction(upgradeID, client))
+			{
+				Skills_PrintToChat(client, "\x04Upgrade \x03%s \x04is already in \x05use", g_TeamUpgrades[upgradeID].name);
+				return 0;
+			}
 
 			Skills_SetTeamMoney(money - cost);
 			Skills_PrintToChatAll("\x05%N \x04bought \x03%s \x04team upgrade", client, g_TeamUpgrades[upgradeID].name);
@@ -168,6 +190,32 @@ public void Skills_OnGetSkillSettings( KeyValues kv )
 	{
 		g_SettingsManager.ExportInt(kv, "more_health_add", 15);
 		RegisterUpgrade(kv, "More Health", OnHealthUpgrade);
+		EXPORT_SECTION_END();
+	}
+
+	EXPORT_SECTION_START("Increased Crouch Speed")
+	{
+		g_SettingsManager.ExportFloat(kv, "crouch_speed", 300.0);
+		g_SettingsManager.ExportFloat(kv, "crouch_duration", 120.0);
+		RegisterUpgrade(kv, "Increased Crouch Speed", OnCrouchUpgrade);
+		EXPORT_SECTION_END();
+	}
+
+	EXPORT_SECTION_START("Adrenaline Team")
+	{
+		g_SettingsManager.ExportFloat(kv, "adrenaline_team_duration", 30.0);
+		g_SettingsManager.ExportInt(kv, "adrenaline_team_heal", 1);
+		RegisterUpgrade(kv, "Adrenaline Team", OnAdrenalineTeam);
+		EXPORT_SECTION_END();
+	}
+
+	if (g_bAirdropAvailable)
+	{
+		EXPORT_SECTION_START("Airdrop")
+		{
+			RegisterUpgrade(kv, "Airdrop", OnAirdrop);
+			EXPORT_SECTION_END();
+		}
 	}
 
 	EXPORT_END();
@@ -190,14 +238,18 @@ bool RegisterUpgrade(KeyValues kv, const char[] name, UpgradeAction action)
 	return true;
 }
 
-void InvokeUpgradeAction(int upgradeID, int buyer)
+bool InvokeUpgradeAction(int upgradeID, int buyer)
 {
+	bool pass;
+
 	Call_StartFunction(null, g_TeamUpgrades[upgradeID].action);
 	Call_PushCell(buyer);
-	Call_Finish();
+	Call_Finish(pass);
+
+	return pass;
 }
 
-public void OnHealthUpgrade(int buyer)
+public bool OnHealthUpgrade(int buyer)
 {
 	int newValue;
 	for(int i = 1; i <= MaxClients; i++)
@@ -208,4 +260,53 @@ public void OnHealthUpgrade(int buyer)
 		newValue = GetEntProp(i, Prop_Send, "m_iMaxHealth") + g_SettingsManager.GetValue("more_health_add");
 		SetEntProp(i, Prop_Send, "m_iMaxHealth", newValue);
 	}
+
+	return true;
+}
+
+public bool OnAirdrop(int buyer)
+{
+	float vOrigin[3], vAngles[3];
+
+	GetClientEyePosition(buyer, vOrigin);
+	GetClientEyeAngles(buyer, vAngles);
+
+	CreateAirdrop(vOrigin, vAngles);
+	return true;
+}
+
+public bool OnCrouchUpgrade(int buyer)
+{
+	float duration = g_SettingsManager.GetValue("crouch_duration");
+	float newSpeed = g_SettingsManager.GetValue("crouch_speed");
+
+	if (survivor_crouch_speed_default == newSpeed)
+		return false;
+
+	CreateTimer(duration, timer_reset_crouch_speed);
+	survivor_crouch_speed.FloatValue = newSpeed;
+	return true;
+}
+
+public bool OnAdrenalineTeam(int buyer)
+{
+	float duration = g_SettingsManager.GetValue("adrenaline_team_duration");
+	bool heal = g_SettingsManager.GetValue("adrenaline_team_heal");
+
+	for(int i = 1; i <= MaxClients; i++)
+	{
+		if (!IsClientInGame(i) || GetClientTeam(i) != 2 || !IsPlayerAlive(i))
+			continue;
+
+		L4D2_UseAdrenaline(buyer, duration, heal);
+	}
+	
+	return true;
+}
+
+public Action timer_reset_crouch_speed(Handle timer)
+{
+	Skills_PrintToChatAll("\x03Increased crouch speed \x04upgrade has been \x05ended");
+	survivor_crouch_speed.FloatValue = survivor_crouch_speed_default;
+	return Plugin_Continue;
 }

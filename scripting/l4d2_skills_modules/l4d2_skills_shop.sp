@@ -61,6 +61,7 @@ void ShowClientShop( int client, int selection = 0 )
 	}
 	
 	menu.SetTitle("Skills: Shop");
+	menu.ExitBackButton = true;
 	menu.ExitButton = true;
 	
 	menu.DisplayAt(client, selection, MENU_TIME_FOREVER);
@@ -73,7 +74,7 @@ public int VMenuHandler( Menu menu, MenuAction action, int client, int index )
 		case MenuAction_End: delete menu;
 		case MenuAction_Cancel:
 		{
-			if( index == MenuCancel_NoDisplay )
+			if( index == MenuCancel_ExitBack || index == MenuCancel_NoDisplay )
 				FakeClientCommand(client, "sm_skills");
 		}
 		case MenuAction_Select:
@@ -107,7 +108,7 @@ public int VMenuHandler( Menu menu, MenuAction action, int client, int index )
 			
 			if ( IsUpgrade(item) )
 			{
-				GiveUpgrade(client, "laser_sight");
+				ExecuteCheatCommand(client, "upgrade_add", "laser_sight");
 			}
 			else
 			{
@@ -126,23 +127,16 @@ bool IsUpgrade( const char[] item )
 	return strcmp(item, "laser_sight") == 0;
 }
 
-void GiveUpgrade( int client, const char[] upgrade )
-{
-	int flags = GetCommandFlags("upgrade_add");
-	SetCommandFlags("upgrade_add", 0);
-	FakeClientCommandEx(client, "upgrade_add %s", upgrade);
-	SetCommandFlags("upgrade_add", flags);
-}
-
 public void Skills_OnGetSkillSettings( KeyValues kv )
 {
-	kv.Rewind();
-	kv.JumpToKey("Skills Shop", true);
+	EXPORT_START("Skills Shop");
 	
 	char buffer[64];
 	for( int i; i < sizeof g_shopList; i++ )
 	{
 		FormatEx(buffer, sizeof buffer, "%s_cost", g_shopList[i].classname);
-		Skills_ExportFloat(kv, buffer, g_shopList[i].cost, 250.0);
+		EXPORT_FLOAT_DEFAULT(buffer, g_shopList[i].cost, 250.0);
 	}
+
+	EXPORT_END();
 }

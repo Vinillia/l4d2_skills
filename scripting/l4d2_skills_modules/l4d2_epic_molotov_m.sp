@@ -37,11 +37,14 @@ int g_iSkillLevel[MAXPLAYERS + 1];
 int g_iID;
 bool g_bBlockEndlessCycle;
 
+public void OnPluginStart()
+{
+	HookEvent("molotov_thrown", molotov_thrown);
+}
+
 public void OnAllPluginsLoaded()
 {
 	g_iID = Skills_Register(SKILL_NAME, ST_ACTIVATION, true);
-	
-	HookEvent("molotov_thrown", molotov_thrown);
 }
 
 public void molotov_thrown( Event event, const char[] name, bool noReplicate )

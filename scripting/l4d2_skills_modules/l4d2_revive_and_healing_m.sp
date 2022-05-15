@@ -21,11 +21,8 @@ ConVar survivor_revive_duration;
 float survivor_revive_duration_base, g_flCost, g_flPower;
 int m_isDualWielding;
 
-public void OnAllPluginsLoaded()
+public void OnPluginStart()
 {
-	Skills_Register(SKILL_NAME, ST_ACTIVATION);
-	Skills_RequestConfigReload(true);
-
 	m_isDualWielding = FindSendPropInfo("CBaseRifle", "m_isDualWielding") + 4;
 	
 	survivor_revive_duration = FindConVar("survivor_revive_duration");
@@ -33,6 +30,12 @@ public void OnAllPluginsLoaded()
 	
 	HookEvent("revive_begin", revive_begin);
 	HookEvent("heal_begin", heal_begin);
+}
+
+public void OnAllPluginsLoaded()
+{
+	Skills_Register(SKILL_NAME, ST_ACTIVATION);
+	Skills_RequestConfigReload(true);
 }
 
 public void revive_begin( Event event, const char[] name, bool dontBroadcast )
