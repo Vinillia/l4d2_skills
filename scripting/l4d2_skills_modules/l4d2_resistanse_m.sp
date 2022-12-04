@@ -8,33 +8,44 @@
 #include <l4d2_skills>
 
 #define SKILL_NAME "Resistance"
-#define MAX_LEVELS 4
 
 public Plugin myinfo =
 {
 	name = "[L4D2] Resistance",
 	author = "BHaType",
 	description = "Absorbs damage",
-	version = "1.0",
+	version = "1.1",
 	url = "https://github.com/Vinillia/l4d2_skills"
 };
 
-enum struct Export
+enum struct ResistanceExport
 {
-	float cost;
-	int levels;
-	float upgradeCosts[MAX_LEVELS];
-	float levelsResistance[MAX_LEVELS];
+	BaseSkillExport base;
+	bool reflect_damage_to_attacker_on_max_level;
+	float reflect_damage_percent;
+	float percent_resistance_initial;
+	float percent_resistance_for_levels[MAX_SKILL_LEVELS];
 }
 
-Export g_Export;
+ResistanceExport gExport;
+BaseSkill g_skill[MAXPLAYERS + 1];
+bool g_bLate;
 
-int g_iClientLevel[MAXPLAYERS + 1];
-int g_iID;
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
+{
+	g_bLate = late;
+	return APLRes_Success;
+}
 
 public void OnAllPluginsLoaded()
 {
-	g_iID = Skills_Register(SKILL_NAME, ST_PASSIVE, true);
+	Skills_Register(SKILL_NAME, ST_PASSIVE, true);
+
+	if (g_bLate)
+	{
+		Skills_ForEveryClient(SFF_CLIENTS, OnClientPutInServer);
+		Skills_RequestConfigReload();
+	}
 }
 
 public void OnClientPutInServer(int client)
@@ -52,78 +63,69 @@ public Action OnTakeDamage( int victim, int &attacker, int &inflictor, float &da
 	if ( GetClientTeam(victim) != 2 || !attacker )
 		return Plugin_Continue;
 
-	int i = g_iClientLevel[victim] - 1;
-	damage -= damage / 100.0 * g_Export.levelsResistance[i]; 
+	if (gExport.reflect_damage_to_attacker_on_max_level && Skills_BaseHasMaxLevel(g_skill[victim], gExport.base))
+	{
+		float reflect = damage / 100.0 * gExport.reflect_damage_percent;
+		SDKHooks_TakeDamage(attacker, victim, victim, reflect, damagetype, weapon, damageForce, damagePosition, true);
+	}
+
+	ApplyResistance(victim, damage);
 	return Plugin_Changed;
 }
 
-public void Skills_OnSkillStateChanged( int client, int id, SkillState state )
+void ApplyResistance(int client, float& damage)
 {
-	if ( id != g_iID )
-		return;
+	int level = Skills_BaseGetLevelAA(g_skill[client]);
+	float absorb_value = gExport.percent_resistance_initial;
 
+	if (Skills_IsBaseUpgraded(g_skill[client]))
+	{
+		absorb_value = gExport.percent_resistance_for_levels[level];
+	}
+	
+	damage -= damage / 100.0 * absorb_value;
+}
+
+public void Skills_OnStateChangedPrivate( int client, int id, SkillState state )
+{
 	if (state == SS_PURCHASED)
-	{
 		SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage);
-	}
-	else
+
+	Skills_BaseUpgrade(g_skill[client]);
+
+	if (Skills_BaseHasMaxLevel(g_skill[client], gExport.base))
 	{
-		g_iClientLevel[client] += 1;
+		Skills_PrintToChat(client, "\x05You \x01have reached max level of \x03" ... SKILL_NAME ... "\x01. \x05You \x01will \x04reflect \x01damage back to \x04attacker\x01!");
 	}
 }
 
-public UpgradeImplementation Skills_OnUpgradeMenuRequest( int client, int id, int &nextLevel, float &upgradeCost )
+public UpgradeImpl Skills_OnUpgradeMenuRequest( int client, int id, int &nextLevel, float &upgradeCost )
 {
-	int i = g_iClientLevel[client];
-	nextLevel = i + 1;
-	upgradeCost = g_Export.upgradeCosts[i];
-	return UI_DEFAULT;
+	return Skills_DefaultUpgradeImpl(g_skill[client], gExport.base, nextLevel, upgradeCost);
 }
 
-public bool Skills_OnCanClientUpgradeSkill( int client, int id )
+public bool Skills_OnCanClientUpgrade( int client, int id )
 {
-	return g_iClientLevel[client] < g_Export.levels;
+	return Skills_DefaultCanClientUpgrade(g_skill[client], gExport.base);
 }
 
-public void Skills_OnGetSkillSettings( KeyValues kv )
+public void Skills_OnGetSettings( KeyValues kv )
 {
 	EXPORT_START(SKILL_NAME);
 	
-	EXPORT_FLOAT_DEFAULT("cost", g_Export.cost, 2500.0);
-	GetArraysExport(kv);
+	EXPORT_SKILL_COST(gExport.base, 2500.0);
+	EXPORT_SKILL_MAXLEVEL(gExport.base, 3);
+	EXPORT_SKILL_UPGRADE_COSTS(gExport.base, { 500.0, 2500.0, 5000.0 });
+	
+	EXPORT_BOOL_DEFAULT("reflect_damage_to_attacker_on_max_level", gExport.reflect_damage_to_attacker_on_max_level, false);
+	EXPORT_FLOAT_DEFAULT("reflect_damage_percent", gExport.reflect_damage_percent, 50.0);
+	EXPORT_FLOAT_DEFAULT("percent_resistance_initial", gExport.percent_resistance_initial, 5.0);
+	EXPORT_FLOAT_ARRAY_DEFAULT("percent_resistance_for_levels", gExport.percent_resistance_for_levels, gExport.base.maxlevel, { 10.0, 25.0, 50.0 });
 
-	EXPORT_END();
-}
-
-void GetArraysExport( KeyValues kv )
-{
-	char buffers[MAX_LEVELS][16];
-	char export[64];
-
-	int costs = GetArrayExport(kv, "upgrade_costs", export, sizeof export, buffers, sizeof buffers, sizeof buffers[], "2500.0, 3000.0, 5000.0");
-	g_Export.levels = costs;
-
-	for( int i; i < costs; i++ )
-		g_Export.upgradeCosts[i] = StringToFloat(buffers[i]);
-
-	int powers = GetArrayExport(kv, "levels_power", export, sizeof export, buffers, sizeof buffers, sizeof buffers[], "10.0, 25.0, 35.0");
-
-	for( int i; i < powers; i++ )
-		g_Export.levelsResistance[i] = StringToFloat(buffers[i]);
-
-	if (powers != costs)
-	{
-		ERROR("upgrade_costs and levels_power count don't match %i != %i", costs, powers);
-	}
-}
-
-int GetArrayExport( KeyValues kv, const char[] key, char[] export, int exportLength, char[][] buffers, int numBuffers, int bufferLength, const char[] defaultValue )
-{
-	Skills_ExportString(kv, key, export, exportLength, defaultValue);
-	return ExplodeString(export, ",", buffers, numBuffers, bufferLength);
+	EXPORT_FINISH();
 }
 
 bool IsHaveSkill( int client )
 {
-	return Skills_ClientHaveByID(client, g_iID);
+	return Skills_BaseHasSkill(g_skill[client]);
 }

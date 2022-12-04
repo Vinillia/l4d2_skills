@@ -225,7 +225,7 @@ void ShowClientSkills( int client )
 		
 		if ( !Skills_IsUpgradable(name) || !CanClientUpgradeSkill(client, i, name) )
 			style = ITEMDRAW_DISABLED;
-		
+			
 		menu.AddItem(temp, name, style);
 	}
 	
@@ -307,17 +307,17 @@ Menu CreateUpgradeMenu( int client, int skillID, int nextLevel, float upgradeCos
 
 bool CanClientUpgradeSkill( int client, int id, const char[] name )
 {
-	Function Skills_OnCanClientUpgradeSkill;
+	Function Skills_OnCanClientUpgrade;
 	Handle owner = Skills_GetOwner(name);
 	
-	Skills_OnCanClientUpgradeSkill = GetFunctionByName(owner, "Skills_OnCanClientUpgradeSkill");
+	Skills_OnCanClientUpgrade = GetFunctionByName(owner, "Skills_OnCanClientUpgrade");
 	
-	if ( Skills_OnCanClientUpgradeSkill == INVALID_FUNCTION )
+	if ( Skills_OnCanClientUpgrade == INVALID_FUNCTION )
 		return true;
 	
 	bool canUpgrade;
 	
-	Call_StartFunction(owner, Skills_OnCanClientUpgradeSkill);
+	Call_StartFunction(owner, Skills_OnCanClientUpgrade);
 	Call_PushCell(client);
 	Call_PushCell(id);
 	Call_Finish(canUpgrade);
@@ -454,7 +454,7 @@ public int VSkillUpgradeHandler( Menu menu, MenuAction action, int client, int i
 				return 0;
 			}
 			
-			UpgradeImplementation impl = UI_NULL; 
+			UpgradeImpl impl = UI_NULL; 
 			int nextLevel;
 			float cost;
 			

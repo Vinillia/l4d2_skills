@@ -9,31 +9,24 @@
 #include <left4dhooks>
 
 #define SKILL_NAME "Ultra Pipe Bomb"
-#define MAX_LEVELS 16
 
 public Plugin myinfo =
 {
 	name = "[L4D2] Ultra Pipe Bomb",
 	author = "BHaType",
 	description = "Spawns additional pipe bombs after throwing",
-	version = "1.0",
+	version = "1.1",
 	url = "https://github.com/Vinillia/l4d2_skills"
 };
 
-enum struct SkillContext
+enum struct UltraPipeBombExport
 {
-	int active_pipebombs;
-	int current_level;
-}
+	BaseSkillExport base;
 
-enum struct ExportedInfo
-{
-	int numLevels;
 	int initialCount;
 	int glowRange;
 	
 	float color[3];
-	float upgradeCost[MAX_LEVELS];
 	float buyCost;
 	float cooldown;
 	float power;
@@ -47,9 +40,21 @@ enum struct ExportedInfo
 	}
 }
 
-ExportedInfo g_ExportedInfo;
-SkillContext g_PlayerSkill[MAXPLAYERS + 1];
-int g_iID = -1;
+enum struct UltraPipeBomb
+{
+	BaseSkill base;
+	int active_pipebombs;
+}
+
+UltraPipeBombExport gExport;
+UltraPipeBomb g_skill[MAXPLAYERS + 1];
+bool g_bLate;
+
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
+{
+	g_bLate = late;
+	return APLRes_Success;
+}
 
 public void OnPluginStart()
 {
@@ -58,13 +63,10 @@ public void OnPluginStart()
 
 public void OnAllPluginsLoaded()
 {
-	g_iID = Skills_Register(SKILL_NAME, ST_ACTIVATION, true);
-		
-	if ( g_ExportedInfo.numLevels > MAX_LEVELS )
-	{
-		LOG("Warning: too many levels, clamped (%i > %i)!", g_ExportedInfo.numLevels, MAX_LEVELS);
-		g_ExportedInfo.numLevels = MAX_LEVELS;
-	}
+	Skills_Register(SKILL_NAME, ST_ACTIVATION, true);
+	
+	if (g_bLate)
+		Skills_RequestConfigReload();
 }
 
 public void grenade_bounce( Event event, const char[] name, bool noReplicate )
@@ -96,7 +98,7 @@ public void grenade_bounce( Event event, const char[] name, bool noReplicate )
 	float power;
 	
 	GetEntPropVector(entity, Prop_Send, "m_vecOrigin", vOrigin);
-	power = g_ExportedInfo.power;
+	power = gExport.power;
 	
 	vVelocity[0] = GetRandomFloat(-1.0) * power;
 	vVelocity[1] = GetRandomFloat(-1.0) * power;
@@ -108,17 +110,17 @@ public void grenade_bounce( Event event, const char[] name, bool noReplicate )
 	SetEntProp(entity, Prop_Send, "m_nSolidType", 1);
 	SetEntProp(entity, Prop_Send, "m_CollisionGroup", 0);
 	
-	if ( g_ExportedInfo.glowRange > 0 )
+	if ( gExport.glowRange > 0 )
 	{
-		SetEntProp(entity, Prop_Send, "m_nGlowRange", g_ExportedInfo.glowRange);
+		SetEntProp(entity, Prop_Send, "m_nGlowRange", gExport.glowRange);
 		SetEntProp(entity, Prop_Send, "m_iGlowType", 3);
-		SetEntProp(entity, Prop_Send, "m_glowColorOverride", g_ExportedInfo.GetColor());
+		SetEntProp(entity, Prop_Send, "m_glowColorOverride", gExport.GetColor());
 	}
 	
-	g_PlayerSkill[client].active_pipebombs++;
+	g_skill[client].active_pipebombs++;
 	
 	if ( IsClientReachedLimit(client) )
-		CreateTimer(g_ExportedInfo.cooldown, timer_cooldown, GetClientUserId(client));
+		CreateTimer(gExport.cooldown, timer_cooldown, GetClientUserId(client));
 }
 
 public Action timer_cooldown( Handle timer, int client )
@@ -126,79 +128,49 @@ public Action timer_cooldown( Handle timer, int client )
 	if ( (client = GetClientOfUserId(client)) == 0 )
 		return Plugin_Continue;
 		
-	g_PlayerSkill[client].active_pipebombs = 0;
+	g_skill[client].active_pipebombs = 0;
 	Skills_PrintToChat(client, "\x05%s \x04can be used \x03again", SKILL_NAME);
 	return Plugin_Continue;
 }
 
 bool IsClientReachedLimit( int client )
 {
-	return g_PlayerSkill[client].active_pipebombs >= g_PlayerSkill[client].current_level + g_ExportedInfo.initialCount;
+	return g_skill[client].active_pipebombs >= Skills_BaseGetLevel(g_skill[client].base) + gExport.initialCount;
 }
 
 bool IsHaveSkill( int client )
 {
-	return g_PlayerSkill[client].current_level > 0;
+	return Skills_BaseHasSkill(g_skill[client].base);
 }
 
-public void Skills_OnSkillStateReset()
+public void Skills_OnStateChangedPrivate( int client, int id, SkillState state )
 {
-	for( int i = 1; i <= MaxClients; i++ )
-		g_PlayerSkill[i].current_level = 0;
+	Skills_BaseUpgrade(g_skill[client].base);
 }
 
-public void Skills_OnSkillStateChanged( int client, int id, SkillState state )
+public bool Skills_OnCanClientUpgrade( int client, int id )
 {
-	if ( state != SS_PURCHASED || g_iID != id )
-		return;
-
-	g_PlayerSkill[client].current_level += 1;
+	return Skills_DefaultCanClientUpgrade(g_skill[client].base, gExport.base);
 }
 
-public bool Skills_OnCanClientUpgradeSkill( int client, int id )
+public UpgradeImpl Skills_OnUpgradeMenuRequest( int client, int id, int &nextLevel, float &upgradeCost )
 {
-	return g_PlayerSkill[client].current_level < g_ExportedInfo.numLevels;
+	return Skills_DefaultUpgradeImpl(g_skill[client].base, gExport.base, nextLevel, upgradeCost);
 }
 
-public UpgradeImplementation Skills_OnUpgradeMenuRequest( int client, int id, int &nextLevel, float &upgradeCost )
-{
-	int level = g_PlayerSkill[client].current_level;
-	
-	nextLevel = level + 1;
-	upgradeCost = g_ExportedInfo.upgradeCost[level - 1];
-	return UI_DEFAULT;
-}
-
-public void Skills_OnGetSkillSettings( KeyValues kv )
+public void Skills_OnGetSettings( KeyValues kv )
 {
 	EXPORT_START(SKILL_NAME);
 	
-	EXPORT_FLOAT_DEFAULT("cost", g_ExportedInfo.buyCost, 2500.0);
-	EXPORT_FLOAT_DEFAULT("cooldown", g_ExportedInfo.cooldown, 15.0);
-	EXPORT_FLOAT_DEFAULT("power", g_ExportedInfo.power, 150.0);
-	EXPORT_INT_DEFAULT("levels", g_ExportedInfo.numLevels, 4);
-	EXPORT_INT_DEFAULT("initial_bombs_count", g_ExportedInfo.initialCount, 4);
-	EXPORT_INT_DEFAULT("glow_range", g_ExportedInfo.glowRange, 500);
-	EXPORT_VECTOR_DEFAULT("glow_color", g_ExportedInfo.color, {255.0, 255.0, 255.0});
-	
-	EXPORT_END();
+	EXPORT_SKILL_COST(gExport.base, 2500.0);
+	EXPORT_SKILL_MAXLEVEL(gExport.base, 3);
+	EXPORT_SKILL_UPGRADE_COSTS(gExport.base, { 1500.0, 2500.0, 3000.0 });
 
-	GetUpgradeCostsLevels(kv);
-}
-
-void GetUpgradeCostsLevels( KeyValues kv )
-{
-	char upgradeCost[64], splitedCosts[MAX_LEVELS][16];
-	int num;
+	EXPORT_FLOAT_DEFAULT("cooldown", gExport.cooldown, 15.0);
+	EXPORT_FLOAT_DEFAULT("power", gExport.power, 150.0);
+	EXPORT_INT_DEFAULT("initial_bombs_count", gExport.initialCount, 4);
+	EXPORT_INT_DEFAULT("glow_range", gExport.glowRange, 500);
+	EXPORT_VECTOR_DEFAULT("glow_color", gExport.color, { 255.0, 255.0, 255.0 });
 	
-	Skills_ExportString(kv, "upgrade_costs", upgradeCost, sizeof upgradeCost, "500.0, 1500.0, 2500.0, 5000.0");
-	num = ExplodeString(upgradeCost, ",", splitedCosts, sizeof splitedCosts, sizeof splitedCosts[]);
-	
-	if ( num != g_ExportedInfo.numLevels )
-		LOG("Warning: upgrade_costs and levels count mismatch %i != %i!", num, g_ExportedInfo.numLevels);
-
-	for( int i; i < num; i++ )
-	{
-		g_ExportedInfo.upgradeCost[i] = StringToFloat(splitedCosts[i]);
-	}
+	EXPORT_FINISH();
 }

@@ -14,65 +14,85 @@ public Plugin myinfo =
 	name = "[L4D2] Sleight of hand",
 	author = "BHaType",
 	description = "Increases weapon reload and deploy speed",
-	version = "1.0",
+	version = "1.1",
 	url = "https://github.com/Vinillia/l4d2_skills"
 };
 
-bool g_bHaveSkill[MAXPLAYERS + 1];
-float g_flPower, g_flCost;
-int g_iID;
-
-public void WH_OnMeleeSwing( int client, int weapon, float &speedmodifier )
+enum struct SleightOfHandExport
 {
-	GetClientSpeed(client, speedmodifier);
+	BaseSkillExport base;
+	float power;
+	float power_for_levels[MAX_SKILL_LEVELS];
 }
 
-public void WH_OnReloadModifier(int client, int weapon, L4D2WeaponType weapontype, float &speedmodifier)
-{
-	GetClientSpeed(client, speedmodifier);
-}
+SleightOfHandExport gExport;
+BaseSkill g_skill[MAXPLAYERS + 1];
 
-public void WH_OnDeployModifier(int client, int weapon, L4D2WeaponType weapontype, float &speedmodifier)
-{
-	GetClientSpeed(client, speedmodifier);
-}
+bool g_bLate;
 
-void GetClientSpeed( int client, float &speed )
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
-	if ( !g_bHaveSkill[client] )
-		return;
-	
-	speed *= g_flPower;
+	g_bLate = late;
+	return APLRes_Success;
 }
 
 public void OnAllPluginsLoaded()
 {
-	g_iID = Skills_Register(SKILL_NAME, ST_PASSIVE);
-	
-	for( int i = 1; i <= MaxClients; i++ )
-		g_bHaveSkill[i] = Skills_ClientHaveByID(i, g_iID);
+	Skills_Register(SKILL_NAME, ST_PASSIVE, true);
+
+	if (g_bLate)
+		Skills_RequestConfigReload();
 }
 
-public void Skills_OnSkillStateReset()
+public void WH_OnReloadModifier(int client, int weapon, L4D2WeaponType weapontype, float &speedmodifier)
 {
-	for( int i = 1; i <= MaxClients; i++ )
-		g_bHaveSkill[i] = false;
+	speedmodifier += GetClientSpeed(client) / 100.0;
 }
 
-public void Skills_OnSkillStateChanged( int client, int id, SkillState state )
+float GetClientSpeed( int client )
 {
-	if ( state != SS_PURCHASED || g_iID != id )
-		return;
+	if (!Skills_IsBaseUpgraded(g_skill[client]))
+		return gExport.power;
 
-	g_bHaveSkill[client] = true;
+	int level = Skills_BaseGetLevelAA(g_skill[client]);
+	return gExport.power_for_levels[level];
 }
 
-public void Skills_OnGetSkillSettings( KeyValues kv )
+void ResetClientSkill(int cl)
+{
+	Skills_BaseReset(g_skill[cl]);
+}
+
+public void Skills_OnStateReset()
+{
+	Skills_ForEveryClient(SFF_CLIENTS, ResetClientSkill);
+}
+
+public void Skills_OnStateChangedPrivate( int client, int id, SkillState state )
+{
+	Skills_BaseUpgrade(g_skill[client]);
+}
+
+public UpgradeImpl Skills_OnUpgradeMenuRequest( int client, int id, int &nextLevel, float &upgradeCost )
+{
+	return Skills_DefaultUpgradeImpl(g_skill[client], gExport.base, nextLevel, upgradeCost);
+}
+
+public bool Skills_OnCanClientUpgrade( int client, int id )
+{
+	return Skills_DefaultCanClientUpgrade(g_skill[client], gExport.base);
+}
+
+public void Skills_OnGetSettings( KeyValues kv )
 {
 	EXPORT_START(SKILL_NAME);
 	
-	EXPORT_FLOAT_DEFAULT("cost", g_flCost, 2500.0);
-	EXPORT_FLOAT_DEFAULT("power", g_flPower, 1.25);
+	EXPORT_SKILL_COST(gExport.base, 2500.0);
+	EXPORT_SKILL_MAXLEVEL(gExport.base, 3);
+	EXPORT_SKILL_UPGRADE_COSTS(gExport.base, { 500.0, 1500.0, 3000.0 });
+	
+	EXPORT_FLOAT_DEFAULT("initial_power", gExport.power, 5.0);
+	EXPORT_FLOAT_ARRAY_DEFAULT("power_for_levels", gExport.power_for_levels, gExport.base.maxlevel, { 15.0, 25.0, 40.0 });
 
-	EXPORT_END();
+	EXPORT_FINISH();
 }

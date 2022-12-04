@@ -75,6 +75,12 @@ bool g_bAirdropAvailable;
 
 native bool CreateAirdrop( const float vOrigin[3], const float vAngles[3], int initiator = 0, bool trace_to_sky = true );
 
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
+{
+	MarkNativeAsOptional("CreateAirdrop");
+	return APLRes_Success;
+}
+
 public void OnPluginStart()
 {
 	g_SettingsManager.settings = new StringMap();
@@ -182,7 +188,7 @@ public int VMenuHandler( Menu menu, MenuAction action, int client, int index )
 	return 0;
 }
 
-public void Skills_OnGetSkillSettings( KeyValues kv )
+public void Skills_OnGetSettings( KeyValues kv )
 {
 	EXPORT_START(MY_EXPORT_NAME);
 
@@ -218,7 +224,7 @@ public void Skills_OnGetSkillSettings( KeyValues kv )
 		}
 	}
 
-	EXPORT_END();
+	EXPORT_FINISH();
 }
 
 bool RegisterUpgrade(KeyValues kv, const char[] name, UpgradeAction action)

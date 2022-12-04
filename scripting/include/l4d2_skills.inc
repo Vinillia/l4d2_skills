@@ -4,6 +4,9 @@
 
 #define _l4d2_skills_included
 
+#define EXPORT_ARRAY_SIZE 32
+#define EXPORT_ARRAY_DELIMITER ", "
+
 #define SKILLS_CONFIG "data/skills.cfg"
 #define SKILLS_GLOBALS "Skills Globals"
 
@@ -12,6 +15,7 @@
 
 #define MAX_SKILL_NAME_LENGTH 64
 #define MAX_SKILLS_COUNT 30
+#define MAX_SKILL_LEVELS 16
 
 #define ERROR(%0) LogError(%0)
 
@@ -21,21 +25,57 @@
 //	#define LOG(%0) (0)	warning 215: expression has no effect
 //#endif
 
-#define EXPORT_START(%1) kv.Rewind(); kv.JumpToKey(%1, true)
-#define EXPORT_END() KeyValueExportToFile(kv)
+#define EXPORT_SKILL_START(%1) kv.Rewind(); kv.JumpToKey(%1, true)
+#define EXPORT_SKILL_FINISH() KeyValueExportToFile(kv)
 
-#define EXPORT_SECTION_START(%1) if (kv.JumpToKey(%1, true))
-#define EXPORT_SECTION_END() kv.GoBack()
+#define EXPORT_ENTER_SECTION(%1) if (kv.JumpToKey(%1, true))
+#define EXPORT_LEAVE_SECTION() kv.GoBack()
 
+#define EXPORT_BOOL_DEFAULT(%1,%2,%3) Skills_ExportBool(kv, %1, %2, %3)
 #define EXPORT_INT_DEFAULT(%1,%2,%3) Skills_ExportInt(kv, %1, %2, %3)
 #define EXPORT_FLOAT_DEFAULT(%1,%2,%3) Skills_ExportFloat(kv, %1, %2, %3)
 #define EXPORT_VECTOR_DEFAULT(%1,%2,%3) Skills_ExportVector(kv, %1, %2, %3)
 #define EXPORT_STRING_DEFAULT(%1,%2,%3,%4) Skills_ExportString(kv, %1, %2, %3, %4)
+#define EXPORT_INT_ARRAY_DEFAULT(%1,%2,%3,%4) Skills_ExportIntArray(kv, %1, %2, %3, %4)
+#define EXPORT_FLOAT_ARRAY_DEFAULT(%1,%2,%3,%4) Skills_ExportFloatArray(kv, %1, %2, %3, %4)
 
-#define EXPORT_INT(%1,%2) EXPORT_INT_DEFAULT(%1, %2, 0)
-#define EXPORT_FLOAT(%1,%2) EXPORT_FLOAT_DEFAULT(%1, %2, 0.0)
-#define EXPORT_VECTOR(%1,%2) EXPORT_VECTOR_DEFAULT(%1, %2, {0.0, 0.0, 0.0})
-#define EXPORT_STRING(%1,%2,%3) EXPORT_STRING_DEFAULT(%1, %2, %3, "")
+#define EXPORT_BOOL(%1,%2) Skills_ExportBool(kv, %1, %2)
+#define EXPORT_INT(%1,%2) Skills_ExportInt(kv, %1, %2)
+#define EXPORT_FLOAT(%1,%2) Skills_ExportFloat(kv, %1, %2)
+#define EXPORT_VECTOR(%1,%2) Skills_ExportVector(kv, %1, %2)
+#define EXPORT_STRING(%1,%2,%3) Skills_ExportString(kv, %1, %2, %3)
+#define EXPORT_INT_ARRAY(%1,%2,%3) Skills_ExportIntArray(kv, %1, %2, %3)
+#define EXPORT_FLOAT_ARRAY(%1,%2,%3) Skills_ExportFloatArray(kv, %1, %2, %3)
+
+// ====================================================================================================
+// Aliases for readability & convinience
+// ====================================================================================================
+
+#define EXPORT_SKILL_COST(%1,%2) Skills_ExportFloat(kv, "cost", %1.cost, %2)
+#define EXPORT_SKILL_MAXLEVEL(%1,%2) Skills_ExportInt(kv, "maxlevel", %1.maxlevel, %2)
+#define EXPORT_SKILL_UPGRADE_COSTS(%1,%2) Skills_ExportFloatArray(kv, "upgrade_costs", %1.upgrade_costs, %1.maxlevel, %2)
+
+#define EXPORT_START(%1) EXPORT_SKILL_START(%1)
+#define EXPORT_FINISH() EXPORT_SKILL_FINISH()
+
+#define EXPORT_SECTION_START(%1) EXPORT_ENTER_SECTION(%1)
+#define EXPORT_SECTION_END() EXPORT_LEAVE_SECTION()
+
+#define INVALID_USERDATA 0
+
+//
+
+enum SkillsFunctorFlags
+{
+	SFF_NONE = 0x0000,
+	SFF_ALIVE = 0x0002,
+	SFF_INGAME = 0x0004,
+	SFF_CONNECTED = 0x008,
+	SFF_PLAYERS = 0x0010,
+	SFF_BOTS = 0x0020,
+
+	SFF_CLIENTS = SFF_INGAME | SFF_PLAYERS | SFF_BOTS
+};
 
 enum SkillType
 {
@@ -43,10 +83,10 @@ enum SkillType
 	ST_NONE,
 	ST_ACTIVATION,
 	ST_PASSIVE,
-	ST_INPUT,
+	ST_INPUT
 };
 
-enum UpgradeImplementation
+enum UpgradeImpl
 {
 	UI_NULL,
 	UI_DEFAULT,
@@ -60,10 +100,41 @@ enum SkillState
 	SS_UPGRADED
 };
 
+enum struct BaseSkillExport
+{
+	int maxlevel;
+	float cost;
+	float upgrade_costs[MAX_SKILL_LEVELS];
+}
+
+enum struct BaseSkill
+{
+	int level;
+
+	void reset()
+	{
+		this.level = 0;
+	}
+}
+
 typedef Skills_OnSkillStateReset = function Action( int id );
-typedef Skills_OnUpgradeMenuRequest = function UpgradeImplementation( int client, int id, int &nextLevel, float &upgradeCost );
+typedef Skills_OnUpgradeMenuRequest = function UpgradeImpl( int client, int id, int &nextLevel, float &upgradeCost );
 typedef Skills_OnCanClientUpgradeSkill = function bool( int client, int id );
 typedef Skills_ItemMenuCallback = function void( int client, const char[] item );
+typedef Skills_CollectorFunctor = function bool( int client );
+
+typeset Skills_ForEveryFunctor
+{
+	function bool( int client );
+	function bool( int client, any userdata );
+
+	function void( int client );
+	function void( int client, any userdata );
+
+	function void();
+}
+
+static any gUserData;
 
 // ====================================================================================================
 // FORWARDS
@@ -77,7 +148,7 @@ typedef Skills_ItemMenuCallback = function void( int client, const char[] item )
  *
  * @noreturn
  */
-forward void Skills_OnClientSkillsMenuOpen( Menu menu, int client );
+forward void Skills_OnClientMenuOpen( Menu menu, int client );
 
 /**
  * @brief Called whenever some plugin registered skill
@@ -87,10 +158,11 @@ forward void Skills_OnClientSkillsMenuOpen( Menu menu, int client );
  *
  * @noreturn
  */
-forward void Skills_OnSkillRegistered( const char[] name, SkillType type );
+forward void Skills_OnRegistered( const char[] name, SkillType type );
 
 /**
  * @brief Called when skill changes it's state  (Eg. upgraded or puchased)
+ * @remarks This is will catch all registered skills, to catch only skills owned by this plugin see Skills_OnSkillStateChangedPrivate
  *
  * @param client		Client index who owns this skill 
  * @param id			Unique id of changed skill
@@ -98,7 +170,18 @@ forward void Skills_OnSkillRegistered( const char[] name, SkillType type );
  *
  * @noreturn
  */
-forward void Skills_OnSkillStateChanged( int client, int id, SkillState state );
+forward void Skills_OnStateChanged( int client, int id, SkillState state );
+
+/**
+ * @brief Same as Skills_OnSkillStateChanged but this is called only for skill owner
+ *
+ * @param client		Client index who owns this skill 
+ * @param id			Unique id of changed skill
+ * @param state			New state of skill (see SkillState)
+ *
+ * @noreturn
+ */
+forward void Skills_OnStateChangedPrivate( int client, int id, SkillState state );
 
 /**
  * @brief Called when it's time to load skill settings
@@ -108,28 +191,28 @@ forward void Skills_OnSkillStateChanged( int client, int id, SkillState state );
  *
  * @noreturn
  */
-forward void Skills_OnGetSkillSettings( KeyValues kv )
+forward void Skills_OnGetSettings( KeyValues kv )
 
 /**
  * @brief Called when l4d2_skills_core is started (OnPluginStart)
  *
  * @noreturn
  */
-forward void Skills_OnSkillCoreStart();
+forward void Skills_OnCoreStart();
 
 /**
  * @brief Called when l4d2_skills_core is loaded (OnAllPluginsLoaded)
  *
  * @noreturn
  */
-forward void Skills_OnSkillCoreLoaded();
+forward void Skills_OnCoreLoaded();
 
 /**
  * @brief Called when skills should reset their states
  *
  * @noreturn
  */
-forward void Skills_OnSkillsStateReset();
+forward void Skills_OnStateReset();
 
 // ====================================================================================================
 // NATIVES
@@ -338,7 +421,7 @@ native int Skills_Register( const char[] name, SkillType type, bool upgradable =
  * @brief Exports int value from config by name
  * @remarks Use escape '/' to travese multiple keys
  *
- * @param skill			Key to travse (Usually skill name)
+ * @param skill			Key to travese (Usually skill name)
  * @param key			Key to export
  * @param value			Variable to store exported value 
  * @param defaultValue 	Variable to store default value if key doesn't exist 
@@ -352,7 +435,7 @@ native bool Skills_ExportIntByName( const char[] skill, const char[] key, int &v
  * @brief Exports float value from config by name
  * @remarks Use escape '/' to travese multiple keys
  *
- * @param skill			Key to travse (Usually skill name)
+ * @param skill			Key to travese (Usually skill name)
  * @param key			Key to export
  * @param value			Variable to store exported value 
  * @param defaultValue 	Variable to store default value if key doesn't exist 
@@ -366,7 +449,7 @@ native bool Skills_ExportFloatByName( const char[] skill, const char[] key, floa
  * @brief Exports string from config by name
  * @remarks Use escape '/' to travese multiple keys
  *
- * @param skill			Key to travse (Usually skill name)
+ * @param skill			Key to travese (Usually skill name)
  * @param key			Key to export
  * @param buffer		Buffer to store exported value
  * @param maxlength		Length of buffer
@@ -381,7 +464,7 @@ native bool Skills_ExportStringByName( const char[] skill, const char[] key, cha
  * @brief Exports vector from config by name
  * @remarks Use escape '/' to travese multiple keys
  *
- * @param skill			Key to travse (Usually skill name)
+ * @param skill			Key to travese (Usually skill name)
  * @param key			Key to export
  * @param value			Vector variable to store exported value
  * @param defaultValue 	Variable to store default value if key doesn't exist 
@@ -405,7 +488,79 @@ native void Skills_RequestConfigReload( bool reopen = true );
 // STOCKS/WRAPPERS
 // ====================================================================================================
 
-stock void Skills_AddClientMoney( int client, float add, bool noMultiplier = false, bool print = false )
+stock void Skills_SetUserData(any data)
+{
+	gUserData = data;
+}
+
+stock void Skills_ForEveryClient(SkillsFunctorFlags flags, Skills_ForEveryFunctor ef, Skills_CollectorFunctor cf = INVALID_FUNCTION, any userdata = INVALID_USERDATA)
+{
+	if (userdata != INVALID_USERDATA)
+		Skills_SetUserData(userdata);
+	
+	ArrayStack stack = Skills_CollectPlayers(flags, cf);
+
+	while(!stack.Empty)
+	{
+		bool pass;
+
+		Call_StartFunction(null, ef);
+		Call_PushCell(stack.Pop());
+		Call_PushCell(gUserData);
+		Call_Finish(pass);
+
+		if (!pass)
+			break;
+	}
+
+	delete stack;
+}
+
+stock ArrayStack Skills_CollectPlayers(SkillsFunctorFlags flags, Skills_CollectorFunctor cf = INVALID_FUNCTION)
+{
+	ArrayStack stack = new ArrayStack();
+
+	for(int i = 1; i <= MaxClients; i++)
+	{
+		if (flags & SFF_CONNECTED && !IsClientConnected(i))
+			continue;
+
+		if (flags & SFF_INGAME && !IsClientInGame(i))
+			continue;
+
+		if (flags & SFF_ALIVE && !IsPlayerAlive(i))
+			continue;
+
+		if ((flags & SFF_CONNECTED || flags && SFF_INGAME) && !(flags & SFF_BOTS && flags & SFF_PLAYERS))
+		{
+			bool fakeclient = IsFakeClient(i);
+			if ((!fakeclient && flags & SFF_BOTS) || (fakeclient && flags & SFF_PLAYERS))
+			{
+				continue;
+			}
+		}
+
+		if (cf != INVALID_FUNCTION)
+		{
+			Action action;
+
+			Call_StartFunction(null, cf);
+			Call_PushCell(i);
+			Call_Finish(action);
+
+			if (action == Plugin_Changed)
+				continue;
+			else if (action == Plugin_Handled)
+				break;
+		}
+
+		stack.Push(i);
+	}
+
+	return stack;
+}
+
+stock void Skills_AddClientMoney( int client, float add, bool noMultiplier = false, bool notify = false )
 {
 	if ( !noMultiplier )
 		add *= Skills_GetClientMoneyMultiplier(client);
@@ -413,8 +568,17 @@ stock void Skills_AddClientMoney( int client, float add, bool noMultiplier = fal
 	float money = Skills_GetClientMoney(client) + add;
 	Skills_SetClientMoney(client, money);
 
-	if (print)
-		Skills_PrintToChat(client, "\x04+\x05%.0f", add);
+	if (notify)
+	{
+		if (add < 0)
+		{
+			Skills_PrintToChat(client, "\x04\x02-\x05%.0f", Skills_fabs(add));
+		}
+		else
+		{
+			Skills_PrintToChat(client, "\x04\x01+\x05%.0f", add);
+		}
+	}
 }
 
 stock void Skills_AddTeamMoney( float add, bool noMultiplier = false )
@@ -424,6 +588,16 @@ stock void Skills_AddTeamMoney( float add, bool noMultiplier = false )
 		
 	float money = Skills_GetTeamMoney() + add;
 	Skills_SetTeamMoney(money);
+}
+
+stock bool Skills_ExportBoolByID( int id, const char[] key, bool &value, const bool defaultValue = false, bool createKey = false)
+{
+	char name[MAX_SKILL_NAME_LENGTH];
+	
+	if ( !Skills_GetName(id, name) )
+		return false;	
+	
+	return Skills_ExportIntByName(name, key, view_as<bool>(value), view_as<bool>(defaultValue), createKey);
 }
 
 stock bool Skills_ExportIntByID( int id, const char[] key, int &value, const int defaultValue = 0, bool createKey = false)
@@ -464,6 +638,11 @@ stock bool Skills_ExportVectorByID( int id, const char[] key, float value[3], co
 		return false;	
 	
 	return Skills_ExportVectorByName(name, key, value, defaultValue, createKey);
+}
+
+stock bool Skills_ExportBool( KeyValues kv, const char[] key, bool& value, const bool defaultValue = false )
+{
+	return Skills_ExportInt(kv, key, view_as<int>(value), view_as<int>(defaultValue));
 }
 
 stock bool Skills_ExportInt( KeyValues kv, const char[] key, int& value, const int defaultValue = 0 )
@@ -547,6 +726,39 @@ stock bool Skills_ExportVector( KeyValues kv, const char[] key, float value[3], 
 	return true;
 }
 
+stock bool Skills_ExportIntArray( KeyValues kv, const char[] key, int[] array, int arraysize, int[] defaultValueArray = { 0, 0, 0 }, int defaultValueArraySize = -1 )
+{
+	if (defaultValueArraySize == -1)
+		defaultValueArraySize = arraysize;
+
+	int size = EXPORT_ARRAY_SIZE * arraysize;
+	char[] data = new char[size];
+	char[] defaultValue = new char[size];
+	bool r;
+
+	IntArrayToString(defaultValueArray, defaultValueArraySize, defaultValue, size);
+	r = Skills_ExportString(kv, key, data, size, defaultValue);
+	StringToIntArray(data, array, arraysize);
+	return r;
+}
+
+stock bool Skills_ExportFloatArray( KeyValues kv, const char[] key, float[] array, int arraysize, float[] defaultValueArray = { 0.0, 0.0, 0.0 }, int defaultValueArraySize = -1 )
+{
+	if (defaultValueArraySize == -1)
+		defaultValueArraySize = arraysize;
+
+	int size = EXPORT_ARRAY_SIZE * arraysize;
+	char[] data = new char[size];
+	char[] defaultValue = new char[size];
+	bool r;
+
+	FloatArrayToString(defaultValueArray, defaultValueArraySize, defaultValue, size);
+	r = Skills_ExportString(kv, key, data, size, defaultValue);
+	StringToFloatArray(data, array, arraysize);
+	return r;
+}
+
+
 stock void KeyValueExportToFile( KeyValues kv )
 {
 	char szPath[PLATFORM_MAX_PATH];
@@ -559,6 +771,54 @@ stock void KeyValueExportToFile( KeyValues kv )
 // ====================================================================================================
 // STOCKS/HELPERS
 // ====================================================================================================
+
+stock void StringToFloatArray(const char[] str, float[] array, int arraysize)
+{
+	char[][] data = new char[arraysize][EXPORT_ARRAY_SIZE];
+	int n = ExplodeString(str, EXPORT_ARRAY_DELIMITER, data, arraysize, EXPORT_ARRAY_SIZE);
+	n = Skills_Min(n, arraysize);
+
+	for(int i; i < n; i++)
+	{
+		array[i] = StringToFloat(data[i]);
+	}
+}
+
+stock void StringToIntArray(const char[] str, int[] array, int arraysize)
+{
+	char[][] data = new char[arraysize][EXPORT_ARRAY_SIZE];
+	int n = ExplodeString(str, EXPORT_ARRAY_DELIMITER, data, arraysize, EXPORT_ARRAY_SIZE);
+	n = Skills_Min(n, arraysize);
+
+	for(int i; i < n; i++)
+	{
+		array[i] = StringToInt(data[i]);
+	}
+}
+
+stock void FloatArrayToString(float[] array, int arraysize, char[] out, int maxlen)
+{
+	char[][] data = new char[arraysize][EXPORT_ARRAY_SIZE];
+	
+	for(int i; i < arraysize; i++)
+	{
+		FloatToString(array[i], data[i], EXPORT_ARRAY_SIZE);
+	}
+
+	ImplodeStrings(data, arraysize, EXPORT_ARRAY_DELIMITER, out, maxlen);
+}
+
+stock void IntArrayToString(int[] array, int arraysize, char[] out, int maxlen)
+{
+	char[][] data = new char[arraysize][EXPORT_ARRAY_SIZE];
+	
+	for(int i; i < arraysize; i++)
+	{
+		IntToString(array[i], data[i], EXPORT_ARRAY_SIZE);
+	}
+
+	ImplodeStrings(data, arraysize, EXPORT_ARRAY_DELIMITER, out, maxlen);
+}
 
 stock void ExecuteCheatCommand(int client, const char[] command, const char[] arg)
 {
@@ -603,4 +863,87 @@ stock void Skills_ReplyToCommand( int client, const char[] fmt, any ... )
 	char buffer[254];
 	VFormat(buffer, sizeof buffer, fmt, 3);
 	ReplyToCommand(client, "%s %s", GetCmdReplySource() == SM_REPLY_TO_CONSOLE ? SKILLS_TAG_NO_COLOR : SKILLS_TAG, buffer);
+}
+
+stock any Skills_Min(any value, any min)
+{
+	return value < min ? min : value;
+}
+
+stock any Skills_Max(any value, any max)
+{
+	return value > max ? max : value;
+}
+
+stock any Skills_Clamp(any value, any min, any max)
+{
+	return Skills_Min(Skills_Max(value, max), min);
+}
+
+stock UpgradeImpl Skills_DefaultUpgradeImpl(BaseSkill skill, BaseSkillExport exp, int &nextLevel, float &upgradeCost)
+{
+	if (sizeof(exp.upgrade_costs) < skill.level)
+	{
+		ERROR("sizeof(exp.upgrade_costs) < skill.level) <-- Expand max levels in source or decrease max level in config");
+		return UI_NULL;
+	}
+
+	nextLevel = skill.level;
+	upgradeCost = exp.upgrade_costs[skill.level - 1];
+	return UI_DEFAULT;
+}
+
+stock bool Skills_DefaultCanClientUpgrade(BaseSkill skill, BaseSkillExport exp)
+{
+	return !Skills_BaseHasMaxLevel(skill, exp);
+}
+
+stock int Skills_BaseGetLevelAA(BaseSkill skill)
+{
+	return Skills_BaseGetLevel(skill) - 1;
+}
+
+stock int Skills_BaseGetLevel(BaseSkill skill)
+{
+	return skill.level - 1;
+}
+
+stock void Skills_BaseReset(BaseSkill skill)
+{
+	skill.reset();
+}
+
+stock void Skills_BaseUpgrade(BaseSkill skill)
+{
+	skill.level++;
+}
+
+stock bool Skills_BaseHasMaxLevel(BaseSkill skill, BaseSkillExport exp)
+{
+	return Skills_BaseGetLevel(skill) >= exp.maxlevel;
+}
+
+stock bool Skills_IsBaseUpgraded(BaseSkill skill)
+{
+	return !Skills_IsBaseLevel(skill, 0);
+}
+
+stock bool Skills_IsBaseLevel(BaseSkill skill, int level)
+{
+	return Skills_BaseGetLevel(skill) == level;
+} 
+
+stock bool Skills_BaseHasSkill(BaseSkill skill)
+{
+	return Skills_BaseGetLevel(skill) >= 0;
+}
+
+stock int Skills_abs(int value)
+{
+	return value < 0 ? -value : value;
+}
+
+stock float Skills_fabs(float value)
+{
+	return value < 0.0 ? -value : value;
 }

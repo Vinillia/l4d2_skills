@@ -16,7 +16,7 @@ public Plugin myinfo =
 };
 
 KeyValues g_hSettings;
-GlobalForward g_hFwdOnGetSkillsSettings;
+GlobalForward g_hFwdOnGetSettings;
 bool g_bLateload;
 
 public any NAT_Skills_ExportIntByName(Handle plugin, int numparams)
@@ -152,10 +152,10 @@ public any NAT_Skills_RequestConfigReload(Handle plugin, int numparams)
 	if ( GetNativeCell(1) )
 		GetSkillSettings();
 		
-	Function f = GetFunctionByName(plugin, "Skills_OnGetSkillSettings");
+	Function f = GetFunctionByName(plugin, "Skills_OnGetSettings");
 	
 	if ( f == INVALID_FUNCTION )
-		return ThrowNativeError(0x00, "Requested config reload but Skills_OnGetSkillSettings function not found");
+		return ThrowNativeError(0x00, "Requested config reload but Skills_OnGetSettings function not found");
 	
 	Call_StartFunction(plugin, f);
 	Call_PushCell(g_hSettings);
@@ -174,7 +174,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int errorma
 	CreateNative("Skills_ExportVectorByName", NAT_Skills_ExportVectorByName);
 	CreateNative("Skills_RequestConfigReload", NAT_Skills_RequestConfigReload);
 	
-	g_hFwdOnGetSkillsSettings = new GlobalForward("Skills_OnGetSkillSettings", ET_Ignore, Param_Cell);
+	g_hFwdOnGetSettings = new GlobalForward("Skills_OnGetSettings", ET_Ignore, Param_Cell);
 	return APLRes_Success;
 }
 	
@@ -192,7 +192,7 @@ public void Skills_OnSkillRegistered( const char[] name, SkillType type )
 {
 	Handle owner = Skills_GetOwner(name);
 
-	Function f = GetFunctionByName(owner, "Skills_OnGetSkillSettings");
+	Function f = GetFunctionByName(owner, "Skills_OnGetSettings");
 	
 	if ( f == INVALID_FUNCTION )
 		return;
@@ -246,7 +246,7 @@ void GetSkillSettings()
 
 void NotifySkillSettings()
 {
-	Call_StartForward(g_hFwdOnGetSkillsSettings);
+	Call_StartForward(g_hFwdOnGetSettings);
 	Call_PushCell(g_hSettings);
 	Call_Finish();
 }

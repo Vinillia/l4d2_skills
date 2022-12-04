@@ -61,9 +61,9 @@ enum struct PlayerSatellite
 	float last_judgement_use;
 }
 
-enum struct Export
+enum struct SatelliteExport
 {
-	float cost;
+	BaseSkillExport base;
 
 	float inferno_damage_specials;
 	float inferno_damage_survivors;
@@ -82,11 +82,18 @@ enum struct Export
 }
 
 Menu g_hMenu;
-Export g_Export;
+SatelliteExport gExport;
+bool g_bLate;
 int g_iHaloMaterial, g_iLaserMaterial, g_iGlowMaterial;
 int g_iID;
 
 PlayerSatellite g_Sattelite[MAXPLAYERS + 1];
+
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
+{
+	g_bLate = late;
+	return APLRes_Success;
+}
 
 public void OnPluginStart()
 {
@@ -107,29 +114,34 @@ public void OnPluginStart()
 public void OnAllPluginsLoaded()
 {
 	g_iID = Skills_Register(SKILL_NAME, ST_INPUT, false);
+
+	if (g_bLate)
+	{
+		Skills_RequestConfigReload();
+	}
 }
 
-public void Skills_OnGetSkillSettings( KeyValues kv )
+public void Skills_OnGetSettings( KeyValues kv )
 {
 	EXPORT_START(SKILL_NAME);
 
-	EXPORT_FLOAT_DEFAULT("cost", g_Export.cost, 50000.0);
-	
-	EXPORT_FLOAT_DEFAULT("inferno_damage_specials", g_Export.inferno_damage_specials, 150.0);
-	EXPORT_FLOAT_DEFAULT("inferno_damage_survivors", g_Export.inferno_damage_survivors, 25.0);
-	EXPORT_FLOAT_DEFAULT("inferno_radius", g_Export.inferno_radius, 50000.0);
-	EXPORT_FLOAT_DEFAULT("inferno_cooldown", g_Export.inferno_cooldown, 5.0);
+	EXPORT_SKILL_COST(gExport.base, 50000.0);
 
-	EXPORT_FLOAT_DEFAULT("freeze_radius", g_Export.freeze_radius, 150.0);
-	EXPORT_FLOAT_DEFAULT("freeze_duration", g_Export.freeze_duration, 5.0);
-	EXPORT_FLOAT_DEFAULT("freeze_cooldown", g_Export.freeze_cooldown, 30.0);
-	
-	EXPORT_FLOAT_DEFAULT("judgement_damage_specials", g_Export.judgement_damage_specials, 150.0);
-	EXPORT_FLOAT_DEFAULT("judgement_damage_survivors", g_Export.judgement_damage_survivors, 25.0);
-	EXPORT_FLOAT_DEFAULT("judgement_radius", g_Export.judgement_radius, 50000.0);
-	EXPORT_FLOAT_DEFAULT("judgement_cooldown", g_Export.judgement_cooldown, 15.0);
+	EXPORT_FLOAT_DEFAULT("inferno_damage_specials", gExport.inferno_damage_specials, 150.0);
+	EXPORT_FLOAT_DEFAULT("inferno_damage_survivors", gExport.inferno_damage_survivors, 25.0);
+	EXPORT_FLOAT_DEFAULT("inferno_radius", gExport.inferno_radius, 500.0);
+	EXPORT_FLOAT_DEFAULT("inferno_cooldown", gExport.inferno_cooldown, 5.0);
 
-	EXPORT_END();
+	EXPORT_FLOAT_DEFAULT("freeze_radius", gExport.freeze_radius, 150.0);
+	EXPORT_FLOAT_DEFAULT("freeze_duration", gExport.freeze_duration, 5.0);
+	EXPORT_FLOAT_DEFAULT("freeze_cooldown", gExport.freeze_cooldown, 30.0);
+	
+	EXPORT_FLOAT_DEFAULT("judgement_damage_specials", gExport.judgement_damage_specials, 150.0);
+	EXPORT_FLOAT_DEFAULT("judgement_damage_survivors", gExport.judgement_damage_survivors, 25.0);
+	EXPORT_FLOAT_DEFAULT("judgement_radius", gExport.judgement_radius, 500.0);
+	EXPORT_FLOAT_DEFAULT("judgement_cooldown", gExport.judgement_cooldown, 15.0);
+
+	EXPORT_FINISH();
 }
 
 public void OnMapStart()
@@ -156,9 +168,9 @@ public void OnMapStart()
 
 public Action sm_satellite_info(int client, int args)
 {
-	Skills_ReplyToCommand(client, "\x04Satellite Freeze\x01: \x04cooldown \x01- \x05%.0f\x01, \x04radius \x01- \x04%.0f\x01, \x04duration \x01 - \x04%.0f", g_Export.freeze_cooldown, g_Export.freeze_radius, g_Export.freeze_duration);
-	Skills_ReplyToCommand(client, "\x04Satellite Judgement\x01: \x04cooldown \x01- \x05%.0f\x01, \x04radius \x01- \x04%.0f\x01, \x04damage \x01- \x04%.0f", g_Export.judgement_cooldown, g_Export.judgement_radius, g_Export.judgement_damage_specials);
-	Skills_ReplyToCommand(client, "\x04Satellite Freeze\x01: \x04cooldown \x01- \x05%.0f\x01, \x04radius \x01- \x04%.0f\x01, \x04damage \x01- \x04%.0f", g_Export.inferno_cooldown, g_Export.inferno_radius, g_Export.inferno_damage_specials);
+	Skills_ReplyToCommand(client, "\x04Satellite Freeze\x01: \x04cooldown \x01- \x05%.0f\x01, \x04radius \x01- \x05%.0f\x01, \x04duration \x01 - \x05%.0f", gExport.freeze_cooldown, gExport.freeze_radius, gExport.freeze_duration);
+	Skills_ReplyToCommand(client, "\x04Satellite Judgement\x01: \x04cooldown \x01- \x05%.0f\x01, \x04radius \x01- \x05%.0f\x01, \x04damage \x01- \x05%.0f", gExport.judgement_cooldown, gExport.judgement_radius, gExport.judgement_damage_specials);
+	Skills_ReplyToCommand(client, "\x04Satellite Freeze\x01: \x04cooldown \x01- \x05%.0f\x01, \x04radius \x01- \x05%.0f\x01, \x04damage \x01- \x05%.0f", gExport.inferno_cooldown, gExport.inferno_radius, gExport.inferno_damage_specials);
 	return Plugin_Handled;
 }
 
@@ -302,21 +314,24 @@ void Judgement(int client, float vOrigin[3])
 			continue;
 
 		GetClientAbsOrigin(i, vPos);
-		if(GetVectorDistance(vPos, vOrigin) <= g_Export.judgement_radius)
+		if(GetVectorDistance(vPos, vOrigin) <= gExport.judgement_radius)
 		{
-			if (g_Export.judgement_damage_specials && GetClientTeam(i) == 3)
+			if (gExport.judgement_damage_specials && GetClientTeam(i) == 3)
 			{
-				SDKHooks_TakeDamage(i, client, client, g_Export.judgement_damage_specials, DMG_GENERIC);
+				SDKHooks_TakeDamage(i, client, client, gExport.judgement_damage_specials, DMG_GENERIC);
 			}
-			else if (g_Export.judgement_damage_survivors)
+			else if (gExport.judgement_damage_survivors)
 			{
-				SDKHooks_TakeDamage(i, client, client, g_Export.judgement_damage_survivors, DMG_GENERIC);
+				SDKHooks_TakeDamage(i, client, client, gExport.judgement_damage_survivors, DMG_GENERIC);
 			}
 		}
 	}
 
 	vOrigin[2] += 5.0;
-	L4D_MolotovPrj(client, vOrigin, {0.0, 0.0, 0.0});
+	
+	int molotov = L4D_MolotovPrj(0, vOrigin, {0.0, 0.0, 0.0}); 
+	SetEntPropEnt(molotov, Prop_Send, "m_hThrower", client); // to bypass epic molotov skill
+
 	PushAway(vOrigin, 500.0, 500.0, 0.5);
 }
 
@@ -334,10 +349,10 @@ void Blizzard(float vStart[3], float vOrigin[3])
 			continue;
 
 		GetClientAbsOrigin(i, vPos);
-		if(GetVectorDistance(vPos, vOrigin) <= g_Export.freeze_radius)
+		if(GetVectorDistance(vPos, vOrigin) <= gExport.freeze_radius)
 		{
 			if( L4D2_GetPlayerZombieClass(i) != L4D2ZombieClass_Tank )
-				FreezePlayer(i, vStart, g_Export.freeze_duration);
+				FreezePlayer(i, vStart, gExport.freeze_duration);
 		}
 	}
 
@@ -360,18 +375,18 @@ void Inferno(int client, float vOrigin[3])
 			continue;
 
 		GetClientEyePosition(i, vPos);
-		if( GetVectorDistance(vPos, vOrigin) <= g_Export.inferno_radius )
+		if( GetVectorDistance(vPos, vOrigin) <= gExport.inferno_radius )
 		{
 			int team = GetClientTeam(i);
 
 			if( team == 2 )
 			{
 				ScreenFade(i, 200, 0, 0, 150, 80, 1);
-				SDKHooks_TakeDamage(i, client, client, g_Export.inferno_damage_survivors, DMG_BURN);
+				SDKHooks_TakeDamage(i, client, client, gExport.inferno_damage_survivors, DMG_BURN);
 			}
 			else if( team == 3 )
 			{
-				SDKHooks_TakeDamage(i, client, client, g_Export.inferno_damage_specials, DMG_BURN);
+				SDKHooks_TakeDamage(i, client, client, gExport.inferno_damage_specials, DMG_BURN);
 			}
 		}
 	}
@@ -381,7 +396,7 @@ void Inferno(int client, float vOrigin[3])
 	while( (entity = FindEntityByClassname(entity, "infected")) != -1 )
 	{
 		GetEntPropVector(entity, Prop_Send, "m_vecOrigin", vPos);
-		if ( GetVectorDistance(vOrigin, vPos) <= g_Export.inferno_radius )
+		if ( GetVectorDistance(vOrigin, vPos) <= gExport.inferno_radius )
 		{
 			SDKHooks_TakeDamage(entity, client, client, 1.0, DMG_BURN);
 		}
@@ -397,17 +412,17 @@ void StartCooldown(int client)
 
 	if (g_Sattelite[client].type == SATELITE_INFERNO)
 	{
-		duration = g_Export.inferno_cooldown;
+		duration = gExport.inferno_cooldown;
 		g_Sattelite[client].last_inferno_use = GetGameTime();
 	}
 	else if (g_Sattelite[client].type == SATELITE_FREEZE)
 	{
-		duration = g_Export.freeze_cooldown;
+		duration = gExport.freeze_cooldown;
 		g_Sattelite[client].last_freeze_use = GetGameTime();
 	}
 	else
 	{
-		duration = g_Export.judgement_cooldown;
+		duration = gExport.judgement_cooldown;
 		g_Sattelite[client].last_judgement_use = GetGameTime();
 	}
 
@@ -454,11 +469,11 @@ bool IsInCooldown(int client)
 	SATELITE_TYPE type = g_Sattelite[client].type;
 
 	if (type == SATELITE_FREEZE)
-		return GetGameTime() - g_Sattelite[client].last_freeze_use <= g_Export.freeze_cooldown;
+		return GetGameTime() - g_Sattelite[client].last_freeze_use <= gExport.freeze_cooldown;
 	else if (type == SATELITE_INFERNO)
-		return GetGameTime() - g_Sattelite[client].last_inferno_use <= g_Export.inferno_cooldown;
+		return GetGameTime() - g_Sattelite[client].last_inferno_use <= gExport.inferno_cooldown;
 	
-	return GetGameTime() - g_Sattelite[client].last_judgement_use <= g_Export.judgement_cooldown;
+	return GetGameTime() - g_Sattelite[client].last_judgement_use <= gExport.judgement_cooldown;
 }
 
 void CreateRingEffect(const float vOrigin[3], int color[4], float startRadius = 300.0, float endRadius = 10.0, float width = 4.0, float duration = 1.2, float amplitude = 0.5)
@@ -603,11 +618,8 @@ void ScreenFade(int target, int red, int green, int blue, int alpha, int duratio
 	EndMessage();
 }
 
-public void Skills_OnSkillStateChanged(int client, int id, SkillState state)
+public void Skills_OnStateChangedPrivate(int client, int id, SkillState state)
 {
-	if (g_iID != id)
-		return;
-
 	if (state == SS_PURCHASED)
 	{
 		int weapon = GetPlayerWeaponSlot(client, 1);
@@ -615,7 +627,7 @@ public void Skills_OnSkillStateChanged(int client, int id, SkillState state)
 		if (weapon == -1 || !ClassMatchesComplex(weapon, "weapon_pistol_magnum"))
 			GivePlayerItem(client, "weapon_pistol_magnum");
 
-		Skills_PrintToChat(client, "Use !sm_change_satellite to change satellite type");
+		Skills_PrintToChat(client, "Use !satellite_change to change satellite type");
 	}
 }
 

@@ -13,13 +13,22 @@ public Plugin myinfo =
 	name = "[L4D2] Assistant",
 	author = "BHaType",
 	description = "Speed ups revie and healing process",
-	version = "1.0",
+	version = "1.1",
 	url = "https://github.com/Vinillia/l4d2_skills"
 };
 
+BaseSkillExport gExport;
+
 ConVar survivor_revive_duration;
-float survivor_revive_duration_base, g_flCost, g_flPower;
-int m_isDualWielding;
+float survivor_revive_duration_base, g_flPower;
+int m_isDualWielding, g_iID;
+bool g_bLate;
+
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
+{
+	g_bLate = late;
+	return APLRes_Success;
+}
 
 public void OnPluginStart()
 {
@@ -34,8 +43,12 @@ public void OnPluginStart()
 
 public void OnAllPluginsLoaded()
 {
-	Skills_Register(SKILL_NAME, ST_ACTIVATION);
-	Skills_RequestConfigReload(true);
+	g_iID = Skills_Register(SKILL_NAME, ST_ACTIVATION);
+
+	if (g_bLate)
+	{
+		Skills_RequestConfigReload();
+	}
 }
 
 public void revive_begin( Event event, const char[] name, bool dontBroadcast )
@@ -53,6 +66,7 @@ public void revive_begin( Event event, const char[] name, bool dontBroadcast )
 public void heal_begin( Event event, const char[] name, bool dontBroadcast )
 {
 	int client = GetClientOfUserId(event.GetInt("userid"));
+	int subject = GetClientOfUserId(event.GetInt("subject"));
 	
 	if ( !IsHaveSkill(client) )
 		return;
@@ -66,6 +80,7 @@ public void heal_begin( Event event, const char[] name, bool dontBroadcast )
 	duration = GetEntDataFloat(kit, m_isDualWielding) * g_flPower;
 	
 	SetEntPropFloat(client, Prop_Send, "m_flProgressBarDuration", duration);
+	SetEntPropFloat(subject, Prop_Send, "m_flProgressBarDuration", duration);
 	
 	SetEntDataFloat(kit, m_isDualWielding, duration); 
 	SetEntDataFloat(kit, m_isDualWielding + 4, GetGameTime() + duration); 
@@ -73,15 +88,15 @@ public void heal_begin( Event event, const char[] name, bool dontBroadcast )
 
 bool IsHaveSkill( int client )
 {
-	return Skills_ClientHaveByName(client, SKILL_NAME);
+	return Skills_ClientHaveByID(client, g_iID);
 }
 
-public void Skills_OnGetSkillSettings( KeyValues kv )
+public void Skills_OnGetSettings( KeyValues kv )
 {
 	EXPORT_START(SKILL_NAME);
 	
-	EXPORT_FLOAT_DEFAULT("cost", g_flCost, 1500.0);
+	EXPORT_SKILL_COST(gExport, 2500.0);
 	EXPORT_FLOAT_DEFAULT("power", g_flPower, 0.5);
 
-	EXPORT_END();
+	EXPORT_FINISH();
 }

@@ -11,35 +11,53 @@ public Plugin myinfo =
 	name = "[L4D2] Skills Shop",
 	author = "BHaType",
 	description = "Simple shop module for skills",
-	version = "1.0",
+	version = "1.1",
 	url = "https://github.com/Vinillia/l4d2_skills"
 };
 
-enum struct Item
+enum struct ShopItem
 {
-	char classname[36];
-	char display[36];
+	char classname[64];
+	char display[64];
 	float cost;
 }
 
-Item g_shopList[] =
+ArrayList g_hItems;
+bool g_bLate;
+
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
-	{ "laser_sight"					  , "Laser sight" 			, 0.0 },					
-	{ "weapon_upgradepack_explosive"  , "Explosive ammo pack" 	, 0.0 },	
-	{ "weapon_upgradepack_incendiary" , "Incendiary ammo pack"	, 0.0 },	
-	{ "weapon_pain_pills"			  , "Pain pills"			, 0.0 }, 				
-	{ "weapon_adrenaline"			  , "Adrenaline"			, 0.0 },    			
-	{ "weapon_defibrillator"		  , "Defibrillator"			, 0.0 }, 			
-	{ "weapon_first_aid_kit"		  , "First aid kit"			, 0.0 },			
-	{ "weapon_molotov"				  , "Molotov"				, 0.0 },			
-	{ "weapon_pipe_bomb"			  , "Pipe bomb" 			, 0.0 },			
-	{ "weapon_vomitjar"				  , "Vomitjar"				, 0.0 }				
-};
+	g_bLate = late;
+	return APLRes_Success;
+}
+
+public void OnPluginStart()
+{
+	g_hItems = new ArrayList(sizeof(ShopItem));
+
+	RegAdminCmd("sm_skills_dump_shop_items", sm_skills_dump_shop_items, ADMFLAG_ROOT);
+}
 
 public void OnAllPluginsLoaded()
 {
 	Skills_AddMenuItem("skills_shop", "Shop", ItemMenuCallback);
-	Skills_RequestConfigReload();
+
+	if (g_bLate)
+		Skills_RequestConfigReload();
+}
+
+public Action sm_skills_dump_shop_items(int client, int args)
+{
+	ShopItem item;
+	int size = g_hItems.Length;
+
+	for(int i; i < size; i++)
+	{
+		g_hItems.GetArray(i, item);
+		Skills_ReplyToCommand(client, "Classname: %s, Alias: %s, Cost: %f", item.classname, item.display, item.cost);
+	}
+
+	return Plugin_Continue;
 }
 
 public void ItemMenuCallback( int client, const char[] item )
@@ -50,14 +68,16 @@ public void ItemMenuCallback( int client, const char[] item )
 void ShowClientShop( int client, int selection = 0 )
 {
 	Menu menu = new Menu(VMenuHandler);
-	char display[64];
-	Item item;
-	
-	for( int i; i < sizeof g_shopList; i++ )
+	char display[72], temp[4];
+	ShopItem item;
+	int size = g_hItems.Length;
+
+	for(int i; i < size; i++)
 	{
-		item = g_shopList[i];
+		g_hItems.GetArray(i, item);
 		FormatEx(display, sizeof display, "%s (%.0f)", item.display, item.cost);
-		menu.AddItem(item.classname, display);
+		IntToString(i, temp, sizeof temp);
+		menu.AddItem(temp, display);
 	}
 	
 	menu.SetTitle("Skills: Shop");
@@ -79,64 +99,61 @@ public int VMenuHandler( Menu menu, MenuAction action, int client, int index )
 		}
 		case MenuAction_Select:
 		{
+			ShopItem item;
+			char szItem[4];
+			int arridx;
+			float money;
+
+			menu.GetItem(index, szItem, sizeof szItem);
+			arridx = StringToInt(szItem);
+			g_hItems.GetArray(arridx, item);
+
+			money = Skills_GetClientMoney(client);
 			ShowClientShop(client, menu.Selection);
 			
-			char item[64];
-			int itemIndex = -1;
-			
-			menu.GetItem(index, item, sizeof item);
-	
-			for( int i; i < sizeof g_shopList; i++ )
-			{
-				if ( strcmp(g_shopList[i].classname, item) == 0 )
-				{
-					itemIndex = i;
-					break;
-				}
-			}
-	
-			if ( itemIndex == -1 )
-				return 0;
-			
-			float money = Skills_GetClientMoney(client);
-			
-			if ( money < g_shopList[itemIndex].cost )
+			if ( money < item.cost )
 			{
 				Skills_PrintToChat(client, "\x05You \x04don't \x05have enough \x03money");
 				return 0;
 			}
 			
-			if ( IsUpgrade(item) )
+			if ( IsLaserSight(item.classname) )
 			{
 				ExecuteCheatCommand(client, "upgrade_add", "laser_sight");
 			}
 			else
 			{
-				GivePlayerItem(client, g_shopList[itemIndex].classname);
+				GivePlayerItem(client, item.classname);
 			}
 			
-			Skills_AddClientMoney(client, -g_shopList[itemIndex].cost);
+			Skills_AddClientMoney(client, -item.cost, true, true);
 		}
 	}
 	
 	return 0;
 }
 
-bool IsUpgrade( const char[] item )
+bool IsLaserSight( const char[] item )
 {
 	return strcmp(item, "laser_sight") == 0;
 }
 
-public void Skills_OnGetSkillSettings( KeyValues kv )
+public void Skills_OnGetSettings( KeyValues kv )
 {
 	EXPORT_START("Skills Shop");
 	
-	char buffer[64];
-	for( int i; i < sizeof g_shopList; i++ )
+	ShopItem item;
+	bool next = kv.GotoFirstSubKey(false);
+
+	while(next)
 	{
-		FormatEx(buffer, sizeof buffer, "%s_cost", g_shopList[i].classname);
-		EXPORT_FLOAT_DEFAULT(buffer, g_shopList[i].cost, 250.0);
+		kv.GetSectionName(item.classname, sizeof ShopItem::classname);
+		EXPORT_FLOAT_DEFAULT("cost", item.cost, 500.0);
+		EXPORT_STRING_DEFAULT("alias", item.display, sizeof ShopItem::display, item.classname);
+
+		g_hItems.PushArray(item);
+		next = kv.GotoNextKey(false);
 	}
 
-	EXPORT_END();
+	EXPORT_FINISH();
 }

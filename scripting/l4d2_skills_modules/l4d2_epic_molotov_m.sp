@@ -9,33 +9,42 @@
 #include <left4dhooks>
 
 #define SKILL_NAME "Epic Molotov"
-#define MAX_LEVELS 16
 
 public Plugin myinfo =
 {
 	name = "[L4D2] Epic Molotov",
 	author = "BHaType",
 	description = "Spawns additional molotovs after throwing",
-	version = "1.1",
+	version = "1.2",
 	url = "https://github.com/Vinillia/l4d2_skills"
 };
 
-enum struct ExportedInfo
+enum struct EpicMolotovExport
 {
+	BaseSkillExport base;
 	int initialCount;
-	int numLevels;
 	
-	float cost;
 	float power;
 	float minScale;
 	float maxScale;
-	float upgradesCost[MAX_LEVELS];
+	float cooldown;
 }
 
-ExportedInfo g_ExportedInfo;
-int g_iSkillLevel[MAXPLAYERS + 1];
-int g_iID;
-bool g_bBlockEndlessCycle;
+enum struct EpicMolotov 
+{
+	BaseSkill base;
+	bool hascooldown;
+}
+
+EpicMolotovExport gExport;
+EpicMolotov g_skill[MAXPLAYERS + 1];
+bool g_bBlockEndlessCycle, g_bLate;
+
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
+{
+	g_bLate = late;
+	return APLRes_Success;
+}
 
 public void OnPluginStart()
 {
@@ -44,7 +53,10 @@ public void OnPluginStart()
 
 public void OnAllPluginsLoaded()
 {
-	g_iID = Skills_Register(SKILL_NAME, ST_ACTIVATION, true);
+	Skills_Register(SKILL_NAME, ST_ACTIVATION, true);
+	
+	if (g_bLate)
+		Skills_RequestConfigReload();
 }
 
 public void molotov_thrown( Event event, const char[] name, bool noReplicate )
@@ -54,7 +66,7 @@ public void molotov_thrown( Event event, const char[] name, bool noReplicate )
 		
 	int client = GetClientOfUserId(event.GetInt("userid"));
 	
-	if ( !IsHaveSkill(client) )
+	if ( !IsHaveSkill(client) || g_skill[client].hascooldown )
 		return;
 	
 	float vOrigin[3], vAngles[3], vVelocity[3];
@@ -66,12 +78,23 @@ public void molotov_thrown( Event event, const char[] name, bool noReplicate )
 	for( int i; i < count; i++ )
 	{
 		GetMolotovVectors(client, vOrigin, vVelocity);
-		ScaleVector(vVelocity, g_ExportedInfo.power * GetRandomFloat(g_ExportedInfo.minScale, g_ExportedInfo.maxScale));
+		ScaleVector(vVelocity, gExport.power * GetRandomFloat(gExport.minScale, gExport.maxScale));
 		entity = L4D_MolotovPrj(client, vOrigin, vAngles);
 		TeleportEntity(entity, NULL_VECTOR, NULL_VECTOR, vVelocity);
 	}
 	
+	g_skill[client].hascooldown = true;
+	CreateTimer(gExport.cooldown, timer_cooldown, client);
 	g_bBlockEndlessCycle = false;
+}
+
+public Action timer_cooldown(Handle timer, int client)
+{
+	if (IsClientInGame(client))
+		Skills_PrintToChat(client, SKILL_NAME ... " can be used again");
+
+	g_skill[client].hascooldown = false;
+	return Plugin_Continue;
 }
 
 void GetMolotovVectors( int client, float origin[3], float velocity[3] )
@@ -95,70 +118,52 @@ void GetMolotovVectors( int client, float origin[3], float velocity[3] )
 
 int GetClientMolotovCount( int client )
 {
-	return g_iSkillLevel[client] + g_ExportedInfo.initialCount;
+	return Skills_BaseGetLevel(g_skill[client].base) + gExport.initialCount;
 }
 
 bool IsHaveSkill( int client )
 {
-	return g_iSkillLevel[client] > 0;
+	return Skills_BaseHasSkill(g_skill[client].base);
 }
 
-public void Skills_OnSkillStateReset()
+void ResetClientSkill(int cl)
 {
-	for( int i = 1; i <= MaxClients; i++ )
-		g_iSkillLevel[i] = 0;
+	Skills_BaseReset(g_skill[cl].base);
 }
 
-public void Skills_OnGetSkillSettings( KeyValues kv )
+public void Skills_OnGetSettings( KeyValues kv )
 {
-	EXPORT_START(SKILL_NAME);
+	EXPORT_SKILL_START(SKILL_NAME);
 
-	EXPORT_INT_DEFAULT("levels", g_ExportedInfo.numLevels, 6);
-	EXPORT_INT_DEFAULT("initial_count", g_ExportedInfo.initialCount, 1);
-	EXPORT_FLOAT_DEFAULT("cost", g_ExportedInfo.cost, 5000.0);
-	EXPORT_FLOAT_DEFAULT("min_scale", g_ExportedInfo.minScale, 0.8);
-	EXPORT_FLOAT_DEFAULT("max_scale", g_ExportedInfo.maxScale, 1.2);
-	EXPORT_FLOAT_DEFAULT("power", g_ExportedInfo.power, 750.0);
+	EXPORT_SKILL_COST(gExport.base, 2500.0);
+	EXPORT_SKILL_MAXLEVEL(gExport.base, 6);
+	EXPORT_SKILL_UPGRADE_COSTS(gExport.base, { 500.0, 1500.0, 2500.0, 3000.0, 5000.0, 6000.0 });
 	
-	GetUpgradeCostsLevels(kv);
+	EXPORT_INT_DEFAULT("initial_count", gExport.initialCount, 1);
+	EXPORT_FLOAT_DEFAULT("min_scale", gExport.minScale, 0.8);
+	EXPORT_FLOAT_DEFAULT("max_scale", gExport.maxScale, 1.2);
+	EXPORT_FLOAT_DEFAULT("power", gExport.power, 750.0);
+	EXPORT_FLOAT_DEFAULT("cooldown", gExport.cooldown, 15.0);
 
-	EXPORT_END();
+	EXPORT_FINISH();
 }
 
-void GetUpgradeCostsLevels( KeyValues kv )
+public void Skills_OnStateChangedPrivate( int client, int id, SkillState state )
 {
-	char upgradeCost[64], splitedCosts[MAX_LEVELS][16];
-	int num;
-	
-	Skills_ExportString(kv, "upgrade_costs", upgradeCost, sizeof upgradeCost, "500.0, 1500.0, 2500.0, 5000.0, 10000.0, 20000.0");
-	num = ExplodeString(upgradeCost, ",", splitedCosts, sizeof splitedCosts, sizeof splitedCosts[]);
-	
-	if ( num != g_ExportedInfo.numLevels )
-		LOG("Warning: upgrade_costs and levels count mismatch %i != %i!", num, g_ExportedInfo.numLevels);
-
-	for( int i; i < num; i++ )
-	{
-		g_ExportedInfo.upgradesCost[i] = StringToFloat(splitedCosts[i]);
-	}
+	Skills_BaseUpgrade(g_skill[client].base);
 }
 
-public void Skills_OnSkillStateChanged( int client, int id, SkillState state )
+public UpgradeImpl Skills_OnUpgradeMenuRequest( int client, int id, int &nextLevel, float &upgradeCost )
 {
-	if ( state != SS_PURCHASED || id != g_iID )
-		return;
-		
-	g_iSkillLevel[client] += 1;
+	return Skills_DefaultUpgradeImpl(g_skill[client].base, gExport.base, nextLevel, upgradeCost);
 }
 
-public UpgradeImplementation Skills_OnUpgradeMenuRequest( int client, int id, int &nextLevel, float &upgradeCost )
+public bool Skills_OnCanClientUpgrade( int client, int id )
 {
-	int curLevel = g_iSkillLevel[client];
-	nextLevel = curLevel + 1;
-	upgradeCost = g_ExportedInfo.upgradesCost[curLevel - 1];
-	return UI_DEFAULT;
+	return Skills_DefaultCanClientUpgrade(g_skill[client].base, gExport.base);
 }
 
-public bool Skills_OnCanClientUpgradeSkill( int client, int id )
+public void Skills_OnStateReset()
 {
-	return g_iSkillLevel[client] < g_ExportedInfo.numLevels;
+	Skills_ForEveryClient(SFF_CLIENTS, ResetClientSkill);
 }

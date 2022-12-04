@@ -176,7 +176,7 @@ public Action sm_additional_buffers_test(int client, int args)
 
 	for(int i; i < count; i++)
 	{
-		if ( GetRandomFloat(1.0, 100.0) <= globals.nothing )
+		if ( GetRandomFloat(1.0, 100.0) >= globals.nothing )
 		{
 			nothing++;
 			continue;
@@ -206,7 +206,7 @@ public Action sm_additional_buffers_reload(int client, int args)
 
 public void player_death( Event event, const char[] name, bool noReplicate )
 {
-	if ( GetRandomFloat(1.0, 100.0) <= globals.nothing )
+	if ( GetRandomFloat(1.0, 100.0) >= globals.nothing )
 		return;
 		
 	int client = GetClientOfUserId(event.GetInt("userid"));
@@ -505,17 +505,17 @@ public void OnTeleport(int owner, int picker, Buff buff)
 		return;
 
 	int survivor = players[GetRandomInt(0, count -1)];
-	float vDestination[3];
+	float dest[3];
 
-	if (g_SettingsManager.GetValue("teleport_allow_backward") && GetRandomFloat() > 0.5)
+	if (g_SettingsManager.GetValue("teleport_allow_backward") && GetRandomFloat() <= 0.5)
 	{
 		int temp = survivor;
 		survivor = picker;
 		picker = temp;
 	}
 
-	GetClientAbsOrigin(survivor, vDestination);
-	TeleportEntity(picker, vDestination, NULL_VECTOR, NULL_VECTOR);
+	GetClientAbsOrigin(survivor, dest);
+	TeleportEntity(picker, dest, NULL_VECTOR, NULL_VECTOR);
 	Skills_PrintToChat(picker, "You got teleported to %N", survivor);
 	Skills_PrintToChat(survivor, "%N teleported to you", picker);
 }
@@ -581,7 +581,7 @@ public void OnTankBox(int owner, int picker, Buff buff)
 	}
 }
 
-public void Skills_OnGetSkillSettings( KeyValues kv )
+public void Skills_OnGetSettings( KeyValues kv )
 {
 	g_iBuffsCount = 0;
 	
@@ -651,12 +651,13 @@ public void Skills_OnGetSkillSettings( KeyValues kv )
 	EXPORT_INT_DEFAULT("print", globals.print, 1);
 	EXPORT_INT_DEFAULT("stealing", globals.stealing, 1);
 	EXPORT_FLOAT_DEFAULT("gift_glow_color_transfusion", globals.gift_glow_color_transfusion, 1.0);
-	EXPORT_FLOAT_DEFAULT("gift_fly_offset", globals.gift_fly_offset, 20.0);
-	EXPORT_FLOAT_DEFAULT("gift_speed", globals.gift_speed, 5.0);
-	EXPORT_FLOAT_DEFAULT("gift_pickup_radius", globals.gift_pickup_radius, 125.0);
-	EXPORT_FLOAT_DEFAULT("gift_rotation_speed", globals.gift_rotation_speed, 2.0);
+	EXPORT_FLOAT_DEFAULT("gift_fly_offset", globals.gift_fly_offset, 15.0);
+	EXPORT_FLOAT_DEFAULT("gift_speed", globals.gift_speed, 0.5);
+	EXPORT_FLOAT_DEFAULT("gift_pickup_radius", globals.gift_pickup_radius, 70.0);
+	EXPORT_FLOAT_DEFAULT("gift_rotation_speed", globals.gift_rotation_speed, 0.5);
+	EXPORT_FLOAT_DEFAULT("gift_chance", globals.nothing, 25.0);
 	
-	EXPORT_END();
+	EXPORT_FINISH();
 
 	GetBuffsWeight();
 }

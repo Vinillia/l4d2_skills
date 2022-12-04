@@ -102,7 +102,7 @@ enum struct Skills
 		info.owner = _owner;
 		info.type = _type;
 		info.upgradable = _upgradable;
-		
+
 		return this.skillInfo.SetArray(name, info, sizeof SkillInfo);
 	}
 	
@@ -142,7 +142,7 @@ enum struct PlayerInfo
 	Economy economy;
 }
 
-GlobalForward g_hFwdOnSkillsRegistered, g_hFwdOnSkillsStateChanged, g_hFwdOnSkillsCoreStart, g_hFwdOnSkillsCoreLoaded, g_hFwdOnSkillsStateReset;
+GlobalForward g_hFwdOnRegistered, g_hFwdOnStateChanged, g_hFwdOnCoreStart, g_hFwdOnCoreLoaded, g_hFwdOnStateReset;
 
 PlayerInfo g_PlayersInfo[MAXPLAYERS + 1];
 Economy g_teamEconomy;
@@ -243,10 +243,14 @@ public any NAT_Skills_Register(Handle plugin, int numparams)
 {
 	char name[MAX_SKILL_NAME_LENGTH];
 	int id;
-	
+	SkillType type;
+	bool upgradable;
+
 	GetNativeString(1, name, sizeof name);
+	type = GetNativeCell(2);
+	upgradable = GetNativeCell(3);
 	id = g_Skills.GetID(name);
-	g_Skills.FillInfo(name, plugin, GetNativeCell(2), GetNativeCell(3));
+	g_Skills.FillInfo(name, plugin, type, upgradable);
 	
 	if ( id != -1 )
 	{
@@ -356,11 +360,11 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int errorma
 	CreateNative("Skills_ChangeState", NAT_Skills_ChangeState);
 	CreateNative("Skills_Register", NAT_Skills_Register);
 	
-	g_hFwdOnSkillsRegistered = new GlobalForward("Skills_OnSkillRegistered", ET_Ignore, Param_String, Param_Cell);
-	g_hFwdOnSkillsCoreStart = new GlobalForward("Skills_OnSkillCoreStart", ET_Ignore);
-	g_hFwdOnSkillsCoreLoaded = new GlobalForward("Skills_OnSkillCoreLoaded", ET_Ignore);
-	g_hFwdOnSkillsStateChanged = new GlobalForward("Skills_OnSkillStateChanged", ET_Ignore, Param_Cell, Param_Cell, Param_Cell);
-	g_hFwdOnSkillsStateReset = new GlobalForward("Skills_OnSkillsStateReset", ET_Ignore);
+	g_hFwdOnRegistered = new GlobalForward("Skills_OnRegistered", ET_Ignore, Param_String, Param_Cell);
+	g_hFwdOnCoreStart = new GlobalForward("Skills_OnCoreStart", ET_Ignore);
+	g_hFwdOnCoreLoaded = new GlobalForward("Skills_OnCoreLoaded", ET_Ignore);
+	g_hFwdOnStateChanged = new GlobalForward("Skills_OnStateChanged", ET_Ignore, Param_Cell, Param_Cell, Param_Cell);
+	g_hFwdOnStateReset = new GlobalForward("Skills_OnStateReset", ET_Ignore);
 	
 	MarkNativeAsOptional("L4D_IsFirstMapInScenario");
 	
@@ -383,12 +387,14 @@ public void OnPluginStart()
 	RegAdminCmd("sm_skills_list", sm_skills_list, ADMFLAG_RCON);
 	RegAdminCmd("sm_skills_update", sm_skills_update, ADMFLAG_ROOT);
 	
-	NotifySkillCoreStart();
+	NotifyCoreStart();
+
+	LoadTranslations("common.phrases.txt");
 }
 
 public void OnAllPluginsLoaded()
 {
-	NotifySkillCoreLoaded();
+	NotifyCoreLoaded();
 }
 
 public void OnMapStart()
@@ -420,14 +426,14 @@ public void OnMapStart()
 			SetClientSkillStateForAll(i, SS_NULL);
 		}
 		
-		NotifySkillStateReset();
+		NotifyStateReset();
 	}
 }
 
 public Action sm_skills_update( int client, int args )
 {
-	NotifySkillCoreStart();
-	NotifySkillCoreLoaded();
+	NotifyCoreStart();
+	NotifyCoreLoaded();
 	return Plugin_Handled;
 }
 
@@ -465,7 +471,7 @@ public Action sm_skills_give_money( int client, int args )
 	
 	if ( target == -1 )
 	{
-		Skills_ReplyToCommand(client, "Invalid target: %s", target);
+		Skills_ReplyToCommand(client, "Invalid target: %s", szTarget);
 		return Plugin_Handled;
 	}
 	
@@ -500,7 +506,7 @@ public Action sm_skills_give_skill( int client, int args )
 	
 	if ( target == -1 )
 	{
-		Skills_ReplyToCommand(client, "Invalid target: %s", target);
+		Skills_ReplyToCommand(client, "Invalid target: %s", szTarget);
 		return Plugin_Handled;
 	}
 	
@@ -577,7 +583,7 @@ void NotifySkillRegistered( const char[] name, int id )
 		return;
 	}
 	
-	Call_StartForward(g_hFwdOnSkillsRegistered);
+	Call_StartForward(g_hFwdOnRegistered);
 	Call_PushString(name);
 	Call_PushCell(info.type);
 	Call_Finish();
@@ -585,27 +591,48 @@ void NotifySkillRegistered( const char[] name, int id )
 
 void NotifySkillStateChanged( int client, int id, SkillState state )
 {
-	Call_StartForward(g_hFwdOnSkillsStateChanged);
+	NotifySkillStateChangedPrivate(client, id, state);
+
+	Call_StartForward(g_hFwdOnStateChanged);
 	Call_PushCell(client);
 	Call_PushCell(id);
 	Call_PushCell(state);
 	Call_Finish();
 }
 
-void NotifySkillCoreStart()
+void NotifySkillStateChangedPrivate(int client, int id, SkillState state)
 {
-	Call_StartForward(g_hFwdOnSkillsCoreStart);
+	char name[MAX_SKILL_NAME_LENGTH];
+	if (!Skills_GetName(id, name))
+		return;
+
+	Handle owner = Skills_GetOwner(name);
+	Function f = GetFunctionByName(owner, "Skills_OnStateChangedPrivate");
+
+	if (f != INVALID_FUNCTION)
+	{
+		Call_StartFunction(owner, f);
+		Call_PushCell(client);
+		Call_PushCell(id);
+		Call_PushCell(state);
+		Call_Finish();
+	}
+}
+
+void NotifyCoreStart()
+{
+	Call_StartForward(g_hFwdOnCoreStart);
 	Call_Finish();
 }
 
-void NotifySkillCoreLoaded()
+void NotifyCoreLoaded()
 {
-	Call_StartForward(g_hFwdOnSkillsCoreLoaded);
+	Call_StartForward(g_hFwdOnCoreLoaded);
 	Call_Finish();
 }
 
-void NotifySkillStateReset()
+void NotifyStateReset()
 {
-	Call_StartForward(g_hFwdOnSkillsStateReset);
+	Call_StartForward(g_hFwdOnStateReset);
 	Call_Finish();
 }

@@ -14,19 +14,20 @@ public Plugin myinfo =
 	name = "[L4D2] Perfect Shove",
 	author = "BHaType",
 	description = "Deals damage to shoved specials",
-	version = "1.0",
+	version = "1.1",
 	url = "https://github.com/Vinillia/l4d2_skills"
 };
 
-enum struct ExportedInfo
+enum struct PerfectShoveExport
 {
-	float cost;
+	BaseSkillExport base;
 	float damage_for_specials;
 	float damage_for_infected;
 }
 
-ExportedInfo g_ExportedInfo;
-int g_iID = -1;
+PerfectShoveExport gExport;
+bool g_bLate;
+int g_iID;
 
 public void OnPluginStart()
 {
@@ -34,9 +35,18 @@ public void OnPluginStart()
 	HookEvent("entity_shoved", entity_shoved);
 }
 
+public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
+{
+	g_bLate = late;
+	return APLRes_Success;
+}
+
 public void OnAllPluginsLoaded()
 {
 	g_iID = Skills_Register(SKILL_NAME, ST_ACTIVATION, false);
+	
+	if (g_bLate)
+		Skills_RequestConfigReload();
 }
 
 public void player_shoved( Event event, const char[] name, bool noReplicate )
@@ -55,7 +65,7 @@ public void player_shoved( Event event, const char[] name, bool noReplicate )
 	if ( class == 4 || class == 2 )
 		return;
 	
-	SDKHooks_TakeDamage(client, attacker, attacker, g_ExportedInfo.damage_for_specials);
+	SDKHooks_TakeDamage(client, attacker, attacker, gExport.damage_for_specials);
 }
 
 public void entity_shoved( Event event, const char[] name, bool noReplicate )
@@ -67,18 +77,18 @@ public void entity_shoved( Event event, const char[] name, bool noReplicate )
 		return;
 	
 	if ( entity > MaxClients && ClassMatchesComplex(entity, "infected") )
-		SDKHooks_TakeDamage(entity, attacker, attacker, g_ExportedInfo.damage_for_infected);
+		SDKHooks_TakeDamage(entity, attacker, attacker, gExport.damage_for_infected);
 }
 
-public void Skills_OnGetSkillSettings( KeyValues kv )
+public void Skills_OnGetSettings( KeyValues kv )
 {
 	EXPORT_START(SKILL_NAME);
 	
-	EXPORT_FLOAT_DEFAULT("cost", g_ExportedInfo.cost, 2500.0);
-	EXPORT_FLOAT_DEFAULT("damage_for_specials", g_ExportedInfo.damage_for_specials, 250.0);
-	EXPORT_FLOAT_DEFAULT("damage_for_infected", g_ExportedInfo.damage_for_infected, 25.0);
+	EXPORT_SKILL_COST(gExport.base, 2500.0);
+	EXPORT_FLOAT_DEFAULT("damage_for_specials", gExport.damage_for_specials, 250.0);
+	EXPORT_FLOAT_DEFAULT("damage_for_infected", gExport.damage_for_infected, 25.0);
 
-	EXPORT_END();
+	EXPORT_FINISH();
 }
 
 bool IsHaveSkill( int client )
