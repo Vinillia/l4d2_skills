@@ -161,7 +161,6 @@ bool HandleInfectedDeath(Event event, int attacker)
 
 	int victim = event.GetInt("entityid");
 	
-	PrintToChatAll("%i", nKills[attacker]);
 	if (victim <= MaxClients || !IsValidEntity(victim) || !ClassMatchesComplex(victim, "infected"))
 		return false;
 	
