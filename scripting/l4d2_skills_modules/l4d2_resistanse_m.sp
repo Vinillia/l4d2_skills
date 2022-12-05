@@ -129,3 +129,14 @@ bool IsHaveSkill( int client )
 {
 	return Skills_BaseHasSkill(g_skill[client]);
 }
+
+void ResetClientSkill(int cl)
+{
+	Skills_BaseReset(g_skill[cl]);
+}
+
+public Action Skills_OnStateReset()
+{
+	Skills_ForEveryClient(SFF_CLIENTS, ResetClientSkill);
+	return Plugin_Continue;
+}

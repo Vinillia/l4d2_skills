@@ -5,6 +5,7 @@
 #include <sdktools>
 
 #include <l4d2_skills>
+#include <left4dhooks>
 
 public Plugin myinfo =
 {
@@ -72,8 +73,16 @@ enum struct NativeItems
 	}
 }
 
+enum struct SkillsMenuExport
+{
+	bool allow_use_only_in_saferoom;
+	float time_to_block;
+}
+
 float g_flUpgradeCost[MAXPLAYERS + 1];
+bool g_isBlocked, g_bLate;
 NativeItems g_NativeItems;
+SkillsMenuExport gExport;
 
 public any NAT_Skills_RequestDefaultUpgradeMenu( Handle plugin, int numparams )
 {
@@ -109,16 +118,39 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int errorma
 {
 	CreateNative("Skills_AddMenuItem", NAT_Skills_AddMenuItem);
 	CreateNative("Skills_RequestDefaultUpgradeMenu", NAT_Skills_RequestDefaultUpgradeMenu);
+
+	g_bLate = late;
 	return APLRes_Success;
 }
 
 public void OnPluginStart()
 {
 	RegConsoleCmd("sm_skills", sm_skills);
+
+	HookEvent("round_end", reset_command_block, EventHookMode_PostNoCopy);
+	HookEvent("mission_lost", reset_command_block, EventHookMode_PostNoCopy);
+}
+
+public void OnAllPluginsLoaded()
+{
+	if (g_bLate)
+		Skills_RequestConfigReload();
+}
+
+public void reset_command_block(Event event, const char[] name, bool dontBroadcast)
+{
+	g_isBlocked = false;
 }
 
 public Action sm_skills( int client, int args )
 {
+	char reason[64];
+	if (!AllowedToOpenMenu(client, reason, sizeof reason))
+	{
+		Skills_PrintToChat(client, "%s", reason);
+		return Plugin_Handled;
+	}
+
 	ShowClientSkillMenu(client);
 	return Plugin_Handled;
 }
@@ -195,15 +227,15 @@ void ShowBalances( int client )
 	menu.Display(client, MENU_TIME_FOREVER);
 }	
 
-void ShowClientSkills( int client )
+void ShowClientSkills( int client, int selection = 0 )
 {
-	static Menu menu;
-	
-	if ( !menu )
 	{
-		menu = new Menu(VSkillUpgradeHandler);
-		menu.ExitBackButton = true;
+		// warning 217: inconsistent indentation (did you mix tabs and spaces?)
+		#pragma unused selection
 	}
+
+	Menu menu = new Menu(VSkillUpgradeHandler);
+	menu.ExitBackButton = true;
 	
 	menu.RemoveAllItems();
 	
@@ -230,7 +262,7 @@ void ShowClientSkills( int client )
 	}
 	
 	menu.SetTitle("Your skills:");
-	menu.Display(client, MENU_TIME_FOREVER);
+	menu.DisplayAt(client, 0/* selection */, MENU_TIME_FOREVER);
 }	
 
 void ShowSkills( int client, SkillType type )
@@ -357,7 +389,7 @@ public int VMenuHandler( Menu menu, MenuAction action, int client, int index )
 			
 			if ( !index )
 			{
-				ShowClientSkills(client);
+				ShowClientSkills(client, index);
 			}
 			else
 			{
@@ -425,6 +457,7 @@ public int VSkillUpgradeHandler( Menu menu, MenuAction action, int client, int i
 {
 	switch( action )
 	{
+		case MenuAction_End: delete menu;
 		case MenuAction_Cancel:
 		{
 			if( index == MenuCancel_ExitBack || index == MenuCancel_NoDisplay )
@@ -484,7 +517,7 @@ public int VMenuUpgradeHandler( Menu menu, MenuAction action, int client, int in
 		case MenuAction_Cancel:
 		{
 			if( index == MenuCancel_ExitBack || index == MenuCancel_NoDisplay )
-				ShowClientSkillMenu(client);
+				ShowClientSkills(client);
 		}
 		case MenuAction_Select:
 		{
@@ -506,14 +539,14 @@ public int VMenuUpgradeHandler( Menu menu, MenuAction action, int client, int in
 			if ( money < cost )
 			{
 				Skills_PrintToChat(client, "\x04You \x05don't \x04have enough \x03money");
-				ShowClientSkills(client);
+				ShowClientSkills(client, index);
 				return 0;
 			}
 			
 			Skills_SetClientMoney(client, money - cost);
 			Skills_ChangeState(client, index, SS_UPGRADED);
 			Skills_PrintToChat(client, "\x05You have \x04upgraded \x03%s", name);
-			ShowClientSkills(client);
+			ShowClientSkills(client, index);
 		}
 	}
 	
@@ -532,4 +565,44 @@ public int VEmptyHandler( Menu menu, MenuAction action, int client, int index )
 	}
 	
 	return 0;
+}
+
+bool AllowedToOpenMenu(int cl, char[] reason, int maxlength)
+{
+	if (gExport.allow_use_only_in_saferoom && !L4D_IsInFirstCheckpoint(cl) && !L4D_IsInLastCheckpoint(cl))
+	{
+		strcopy(reason, maxlength, "You must be in saferoom to open skills menu.");
+		return false;
+	}
+
+	strcopy(reason, maxlength, "Timer to use command expired. Wait for next round.");
+	return !g_isBlocked; 
+}
+
+public void L4D_OnFirstSurvivorLeftSafeArea_Post(int client)
+{
+	g_isBlocked = false;
+
+	if (gExport.time_to_block != -1.0)
+		CreateTimer(gExport.time_to_block, timer_block_command, TIMER_FLAG_NO_MAPCHANGE);
+}
+
+public Action timer_block_command(Handle timer)
+{
+	if (g_isBlocked)
+		return Plugin_Continue;
+
+	Skills_PrintToChatAll("Command to open skills menu has been blocked!");
+	g_isBlocked = true;
+	return Plugin_Continue;
+}
+
+public void Skills_OnGetSettings(KeyValues kv)
+{
+	EXPORT_START("Skills Menu");
+
+	EXPORT_BOOL("allow_use_only_in_saferoom", gExport.allow_use_only_in_saferoom);
+	EXPORT_FLOAT_DEFAULT("time_to_block", gExport.time_to_block, -1.0);
+
+	EXPORT_FINISH();
 }

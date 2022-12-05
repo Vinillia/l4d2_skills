@@ -87,6 +87,12 @@ bool IsHaveSkill( int client )
 	return Skills_ClientHaveByID(client, g_iID);
 }
 
+public Action Skills_OnStateReset()
+{
+	Skills_RemoveEveryByID(g_iID);
+	return Plugin_Continue;
+}
+
 public void Skills_OnGetSettings( KeyValues kv )
 {
 	EXPORT_START(SKILL_NAME);

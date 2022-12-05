@@ -63,9 +63,10 @@ void ResetClientSkill(int cl)
 	Skills_BaseReset(g_skill[cl]);
 }
 
-public void Skills_OnStateReset()
+public Action Skills_OnStateReset()
 {
 	Skills_ForEveryClient(SFF_CLIENTS, ResetClientSkill);
+	return Plugin_Continue;
 }
 
 public void Skills_OnStateChangedPrivate( int client, int id, SkillState state )

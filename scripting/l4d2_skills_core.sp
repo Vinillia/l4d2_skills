@@ -402,7 +402,7 @@ public void OnMapStart()
 	if ( L4D_IsFirstMapInScenario() )
 	{
 		char name[MAX_SKILL_NAME_LENGTH];
-		Function Skills_OnSkillStateReset;
+		Function fSkills_OnStateReset;
 		Handle owner;
 		int count = Skills_GetCount();
 		
@@ -411,19 +411,19 @@ public void OnMapStart()
 			Skills_GetName(i, name);
 			owner = Skills_GetOwner(name);
 			
-			if ( (Skills_OnSkillStateReset = GetFunctionByName(owner, "Skills_OnSkillStateReset")) == INVALID_FUNCTION )
-				continue;
-			
-			Action result = Plugin_Continue;
-			
-			Call_StartFunction(owner, Skills_OnSkillStateReset);
-			Call_PushCell(i);
-			Call_Finish(result);
-			
-			if ( result > Plugin_Continue )
-				continue;
-			
-			SetClientSkillStateForAll(i, SS_NULL);
+			if ( (fSkills_OnStateReset = GetFunctionByName(owner, "Skills_OnStateReset")) != INVALID_FUNCTION )
+			{
+				Action result = Plugin_Continue;
+
+				Call_StartFunction(owner, fSkills_OnStateReset);
+				Call_PushCell(i);
+				Call_Finish(result);
+
+				if ( result > Plugin_Continue )
+					continue;
+			}
+
+			Skills_RemoveEveryByID(i);
 		}
 		
 		NotifyStateReset();
@@ -548,17 +548,6 @@ public void Skills_OnSkillStateChangedFrame( int id )
 			continue;
 				
 		NotifySkillStateChanged(i, id, GetClientSkillState(i, id) ? SS_PURCHASED : SS_NULL);
-	}
-}
-
-void SetClientSkillStateForAll( int id, SkillState state )
-{
-	for( int i = 1; i <= MaxClients; i++ )
-	{
-		if ( !IsClientInGame(i) || IsFakeClient(i) )
-			continue;
-			
-		SetClientSkillState(i, id, state);
 	}
 }
 

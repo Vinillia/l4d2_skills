@@ -103,3 +103,14 @@ public void Skills_OnGetSettings( KeyValues kv )
 
 	EXPORT_FINISH();
 }
+
+void ResetClientSkill(int cl)
+{
+	Skills_BaseReset(g_skill[cl]);
+}
+
+public Action Skills_OnStateReset()
+{
+	Skills_ForEveryClient(SFF_CLIENTS, ResetClientSkill);
+	return Plugin_Continue;
+}

@@ -209,10 +209,11 @@ forward void Skills_OnCoreLoaded();
 
 /**
  * @brief Called when skills should reset their states
+ * @remarks Clears internal state in core (see SkillState) 
  *
- * @noreturn
+ * @return Plugin_Continue to allow reset any other value will be considered as block
  */
-forward void Skills_OnStateReset();
+forward Action Skills_OnStateReset();
 
 // ====================================================================================================
 // NATIVES
@@ -758,7 +759,6 @@ stock bool Skills_ExportFloatArray( KeyValues kv, const char[] key, float[] arra
 	return r;
 }
 
-
 stock void KeyValueExportToFile( KeyValues kv )
 {
 	char szPath[PLATFORM_MAX_PATH];
@@ -865,6 +865,28 @@ stock void Skills_ReplyToCommand( int client, const char[] fmt, any ... )
 	ReplyToCommand(client, "%s %s", GetCmdReplySource() == SM_REPLY_TO_CONSOLE ? SKILLS_TAG_NO_COLOR : SKILLS_TAG, buffer);
 }
 
+stock void Skills_GivePlayerByID(int client, int id)
+{
+	Skills_ChangeState(client, id, SS_PURCHASED);
+}
+
+stock void Skills_RemovePlayerByID(int client, int id)
+{
+	Skills_ChangeState(client, id, SS_NULL);
+}
+
+stock void Skills_GiveEveryByID(int skillID)
+{
+	Skills_SetUserData(skillID);
+	Skills_ForEveryClient(SFF_NONE, Skills_GivePlayerByID);
+}
+
+stock void Skills_RemoveEveryByID(int skillID)
+{
+	Skills_SetUserData(skillID);
+	Skills_ForEveryClient(SFF_NONE, Skills_RemovePlayerByID);
+}
+
 stock any Skills_Min(any value, any min)
 {
 	return value < min ? min : value;
@@ -925,7 +947,7 @@ stock bool Skills_BaseHasMaxLevel(BaseSkill skill, BaseSkillExport exp)
 
 stock bool Skills_IsBaseUpgraded(BaseSkill skill)
 {
-	return !Skills_IsBaseLevel(skill, 0);
+	return Skills_BaseHasSkill(skill) && !Skills_IsBaseLevel(skill, 0);
 }
 
 stock bool Skills_IsBaseLevel(BaseSkill skill, int level)

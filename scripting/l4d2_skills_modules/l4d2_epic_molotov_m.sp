@@ -163,7 +163,8 @@ public bool Skills_OnCanClientUpgrade( int client, int id )
 	return Skills_DefaultCanClientUpgrade(g_skill[client].base, gExport.base);
 }
 
-public void Skills_OnStateReset()
+public Action Skills_OnStateReset()
 {
 	Skills_ForEveryClient(SFF_CLIENTS, ResetClientSkill);
+	return Plugin_Continue;
 }

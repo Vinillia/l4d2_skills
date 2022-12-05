@@ -255,18 +255,16 @@ bool InvokeUpgradeAction(int upgradeID, int buyer)
 	return pass;
 }
 
-public bool OnHealthUpgrade(int buyer)
+public bool OnCrouchUpgrade(int buyer)
 {
-	int newValue;
-	for(int i = 1; i <= MaxClients; i++)
-	{
-		if (!IsClientInGame(i) || GetClientTeam(i) != 2 || !IsPlayerAlive(i))
-			continue;
+	float duration = g_SettingsManager.GetValue("crouch_duration");
+	float newSpeed = g_SettingsManager.GetValue("crouch_speed");
 
-		newValue = GetEntProp(i, Prop_Send, "m_iMaxHealth") + g_SettingsManager.GetValue("more_health_add");
-		SetEntProp(i, Prop_Send, "m_iMaxHealth", newValue);
-	}
+	if (survivor_crouch_speed_default == newSpeed)
+		return false;
 
+	CreateTimer(duration, timer_reset_crouch_speed);
+	survivor_crouch_speed.FloatValue = newSpeed;
 	return true;
 }
 
@@ -281,38 +279,35 @@ public bool OnAirdrop(int buyer)
 	return true;
 }
 
-public bool OnCrouchUpgrade(int buyer)
+public bool OnHealthUpgrade(int buyer)
 {
-	float duration = g_SettingsManager.GetValue("crouch_duration");
-	float newSpeed = g_SettingsManager.GetValue("crouch_speed");
-
-	if (survivor_crouch_speed_default == newSpeed)
-		return false;
-
-	CreateTimer(duration, timer_reset_crouch_speed);
-	survivor_crouch_speed.FloatValue = newSpeed;
+	Skills_ForEveryClient(SFF_CLIENTS | SFF_ALIVE, UpgradeClientHealth);
 	return true;
 }
 
 public bool OnAdrenalineTeam(int buyer)
 {
+	Skills_ForEveryClient(SFF_CLIENTS | SFF_ALIVE, UseClientAdrenaline);	
+	return true;
+}
+
+void UpgradeClientHealth(int cl)
+{
+	int add = g_SettingsManager.GetValue("more_health_add");	
+	int newValue = GetEntProp(cl, Prop_Send, "m_iMaxHealth");
+	SetEntProp(cl, Prop_Send, "m_iMaxHealth", newValue + add);
+}
+
+void UseClientAdrenaline(int cl)
+{	
 	float duration = g_SettingsManager.GetValue("adrenaline_team_duration");
 	bool heal = g_SettingsManager.GetValue("adrenaline_team_heal");
-
-	for(int i = 1; i <= MaxClients; i++)
-	{
-		if (!IsClientInGame(i) || GetClientTeam(i) != 2 || !IsPlayerAlive(i))
-			continue;
-
-		L4D2_UseAdrenaline(buyer, duration, heal);
-	}
-	
-	return true;
+	L4D2_UseAdrenaline(cl, duration, heal);
 }
 
 public Action timer_reset_crouch_speed(Handle timer)
 {
-	Skills_PrintToChatAll("\x03Increased crouch speed \x04upgrade has been \x05ended");
+	Skills_PrintToChatAll("\x03Increased crouch speed \x04upgrade has \x05ended");
 	survivor_crouch_speed.FloatValue = survivor_crouch_speed_default;
 	return Plugin_Continue;
 }

@@ -7,11 +7,11 @@
 
 #include <l4d2_skills>
 
-#define SKILL_NAME "Double Jump"
+#define SKILL_NAME "Jumper"
 
 public Plugin myinfo =
 {
-	name = "[L4D2] Skills Double Jump",
+	name = "[L4D2] Skills Jumper",
 	author = "BHaType",
 	description = "Adds additional jumps",
 	version = "1.1",
@@ -177,9 +177,10 @@ void ResetClientSkill(int cl)
 	Skills_BaseReset(g_clData[cl].base);
 }
 
-public void Skills_OnStateReset()
+public Action Skills_OnStateReset()
 {
 	Skills_ForEveryClient(SFF_CLIENTS, ResetClientSkill);
+	return Plugin_Continue;
 }
 
 public void Skills_OnGetSettings( KeyValues kv )
