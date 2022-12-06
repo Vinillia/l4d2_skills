@@ -387,9 +387,9 @@ public void OnPluginStart()
 	RegAdminCmd("sm_skills_list", sm_skills_list, ADMFLAG_RCON);
 	RegAdminCmd("sm_skills_update", sm_skills_update, ADMFLAG_ROOT);
 	
-	NotifyCoreStart();
-
 	LoadTranslations("common.phrases.txt");
+
+	NotifyCoreStart();
 }
 
 public void OnAllPluginsLoaded()
@@ -401,30 +401,11 @@ public void OnMapStart()
 {
 	if ( L4D_IsFirstMapInScenario() )
 	{
-		char name[MAX_SKILL_NAME_LENGTH];
-		Function fSkills_OnStateReset;
-		Handle owner;
-		int count = Skills_GetCount();
-		
-		for( int i; i < count; i++ )
-		{
-			Skills_GetName(i, name);
-			owner = Skills_GetOwner(name);
-			
-			if ( (fSkills_OnStateReset = GetFunctionByName(owner, "Skills_OnStateReset")) != INVALID_FUNCTION )
-			{
-				Action result = Plugin_Continue;
-
-				Call_StartFunction(owner, fSkills_OnStateReset);
-				Call_PushCell(i);
-				Call_Finish(result);
-
-				if ( result > Plugin_Continue )
-					continue;
-			}
-
-			Skills_RemoveEveryByID(i);
-		}
+		// int count = Skills_GetCount();
+		// for( int i; i < count; i++ )
+		// {
+		// 	NotifySkillReset(i);
+		// }
 		
 		NotifyStateReset();
 	}
@@ -447,7 +428,7 @@ public Action sm_skills_give_team_money( int client, int args )
 	
 	float add = float(GetCmdArgInt(1));
 	g_teamEconomy.AddMoney(add);
-	Skills_PrintToChat(client, "\x01Added \x04%.0f \x01to team money", add);
+	Skills_PrintToChatAll("\x01Added \x04%.0f \x01to team money", add);
 	return Plugin_Handled;
 }
 
@@ -580,6 +561,12 @@ void NotifySkillRegistered( const char[] name, int id )
 
 void NotifySkillStateChanged( int client, int id, SkillState state )
 {
+	if (state == SS_NULL)
+	{
+		NotifySkillReset(id);
+		return;
+	}
+
 	NotifySkillStateChangedPrivate(client, id, state);
 
 	Call_StartForward(g_hFwdOnStateChanged);
@@ -608,20 +595,44 @@ void NotifySkillStateChangedPrivate(int client, int id, SkillState state)
 	}
 }
 
-void NotifyCoreStart()
+stock void NotifyCoreStart()
 {
 	Call_StartForward(g_hFwdOnCoreStart);
 	Call_Finish();
 }
 
-void NotifyCoreLoaded()
+stock void NotifyCoreLoaded()
 {
 	Call_StartForward(g_hFwdOnCoreLoaded);
 	Call_Finish();
 }
 
-void NotifyStateReset()
+stock void NotifyStateReset()
 {
 	Call_StartForward(g_hFwdOnStateReset);
 	Call_Finish();
+}
+
+stock bool NotifySkillReset(int i)
+{
+	char name[MAX_SKILL_NAME_LENGTH];
+	Function fSkills_OnStateReset;
+	Handle owner;
+
+	Skills_GetName(i, name);
+	owner = Skills_GetOwner(name);
+				
+	if ( (fSkills_OnStateReset = GetFunctionByName(owner, "Skills_OnStateReset")) != INVALID_FUNCTION )
+	{
+		Action result = Plugin_Continue;
+
+		Call_StartFunction(owner, fSkills_OnStateReset);
+		Call_Finish(result);
+
+		if ( result > Plugin_Continue )
+			return false;
+	}
+
+	Skills_RemoveEveryByID(i);
+	return true;
 }
