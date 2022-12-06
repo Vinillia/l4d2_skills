@@ -11,7 +11,7 @@ public Plugin myinfo =
 	name = "[L4D2] Skills Config",
 	author = "BHaType",
 	description = "Provides natives for exporting data from config",
-	version = "1.0",
+	version = "1.1",
 	url = "https://github.com/Vinillia/l4d2_skills"
 };
 
@@ -183,15 +183,18 @@ public void OnPluginStart()
 	GetSkillSettings();
 	
 	RegAdminCmd("sm_skills_config_reload", sm_skills_config_reload, ADMFLAG_RCON);
-	
+	RegAdminCmd("sm_skills_config_reload_hard", sm_skills_config_reload_hard, ADMFLAG_RCON);
+}
+
+public void OnAllPluginsLoaded()
+{
 	if ( g_bLateload )
 		NotifySkillSettings();
 }
 
-public void Skills_OnSkillRegistered( const char[] name, SkillType type )
+public void Skills_OnRegistered( const char[] name, SkillType type )
 {
 	Handle owner = Skills_GetOwner(name);
-
 	Function f = GetFunctionByName(owner, "Skills_OnGetSettings");
 	
 	if ( f == INVALID_FUNCTION )
@@ -206,34 +209,31 @@ public void Skills_OnSkillRegistered( const char[] name, SkillType type )
 
 public Action sm_skills_config_reload( int client, int args )
 {
-	if ( args <= 0 || args > 1 )
-	{
-		Skills_ReplyToCommand(client, "Usage: !skills_config_reload <flags> (1 - reload, 2 - notify)");
-		return Plugin_Handled;
-	}
+	NotifySkillSettings();
+	Skills_ReplyToCommand(client, "Reloaded configuration");
+	return Plugin_Handled;
+}
+
+public Action sm_skills_config_reload_hard( int client, int args )
+{
+	if (g_hSettings)
+		delete g_hSettings;
 	
-	enum
-	{
-		NULL, RELOAD, NOTIFY 
-	};
-	
-	#pragma unused NULL
-	int flags = GetCmdArgInt(1);
-	
-	if ( flags & RELOAD )
-		GetSkillSettings();
-	
-	if ( flags & NOTIFY )
-		NotifySkillSettings();
-	
+	GetSkillSettings();
+	NotifySkillSettings();
+	Skills_ReplyToCommand(client, "Hard reloaded configuration");
 	return Plugin_Handled;
 }
 
 void GetSkillSettings()
 {
+	if (g_hSettings)
+		return;
+	/*
 	if ( g_hSettings != null )
 		delete g_hSettings;
-		
+	*/
+
 	g_hSettings = new KeyValues("SkillsSettings");
 	g_hSettings.SetEscapeSequences(true);
 

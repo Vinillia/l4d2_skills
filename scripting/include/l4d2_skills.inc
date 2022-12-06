@@ -125,13 +125,9 @@ typedef Skills_CollectorFunctor = function bool( int client );
 
 typeset Skills_ForEveryFunctor
 {
-	function bool( int client );
-	function bool( int client, any userdata );
-
-	function void( int client );
-	function void( int client, any userdata );
-
-	function void();
+	function bool();
+	function bool(int client);
+	function bool(int client, any userdata);
 }
 
 static any gUserData;
@@ -865,14 +861,16 @@ stock void Skills_ReplyToCommand( int client, const char[] fmt, any ... )
 	ReplyToCommand(client, "%s %s", GetCmdReplySource() == SM_REPLY_TO_CONSOLE ? SKILLS_TAG_NO_COLOR : SKILLS_TAG, buffer);
 }
 
-stock void Skills_GivePlayerByID(int client, int id)
+stock bool Skills_GivePlayerByID(int client, int id)
 {
 	Skills_ChangeState(client, id, SS_PURCHASED);
+	return true;
 }
 
-stock void Skills_RemovePlayerByID(int client, int id)
+stock bool Skills_RemovePlayerByID(int client, int id)
 {
 	Skills_ChangeState(client, id, SS_NULL);
+	return true;
 }
 
 stock void Skills_GiveEveryByID(int skillID)
@@ -942,7 +940,7 @@ stock void Skills_BaseUpgrade(BaseSkill skill)
 
 stock bool Skills_BaseHasMaxLevel(BaseSkill skill, BaseSkillExport exp)
 {
-	return Skills_BaseGetLevel(skill) >= exp.maxlevel;
+	return exp.maxlevel > 0 && Skills_BaseGetLevel(skill) >= exp.maxlevel;
 }
 
 stock bool Skills_IsBaseUpgraded(BaseSkill skill)

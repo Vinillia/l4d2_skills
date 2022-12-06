@@ -17,7 +17,7 @@ public Plugin myinfo =
 	name = "[L4D2] Team Upgrades",
 	author = "BHaType",
 	description = "Adds team upgrades to skills menu",
-	version = "1.0",
+	version = "1.1",
 	url = "https://github.com/Vinillia/l4d2_skills"
 };
 
@@ -72,6 +72,7 @@ SettingsManager g_SettingsManager;
 ConVar survivor_crouch_speed;
 float survivor_crouch_speed_default;
 bool g_bAirdropAvailable;
+bool g_bLateLoad;
 
 native bool CreateAirdrop( const float vOrigin[3], const float vAngles[3], int initiator = 0, bool trace_to_sky = true );
 
@@ -96,7 +97,9 @@ public void OnAllPluginsLoaded()
 	g_bAirdropAvailable = GetFeatureStatus(FeatureType_Native, "CreateAirdrop") == FeatureStatus_Available;
 
 	Skills_AddMenuItem("skills_team_upgrades", "Team Upgrades", ItemMenuCallback);
-	Skills_RequestConfigReload();
+	
+	if (g_bLateLoad)
+		Skills_RequestConfigReload();
 }
 
 public void OnPluginEnd()
@@ -291,18 +294,20 @@ public bool OnAdrenalineTeam(int buyer)
 	return true;
 }
 
-void UpgradeClientHealth(int cl)
+bool UpgradeClientHealth(int cl)
 {
 	int add = g_SettingsManager.GetValue("more_health_add");	
 	int newValue = GetEntProp(cl, Prop_Send, "m_iMaxHealth");
 	SetEntProp(cl, Prop_Send, "m_iMaxHealth", newValue + add);
+	return true;
 }
 
-void UseClientAdrenaline(int cl)
+bool UseClientAdrenaline(int cl)
 {	
 	float duration = g_SettingsManager.GetValue("adrenaline_team_duration");
 	bool heal = g_SettingsManager.GetValue("adrenaline_team_heal");
 	L4D2_UseAdrenaline(cl, duration, heal);
+	return true;
 }
 
 public Action timer_reset_crouch_speed(Handle timer)
