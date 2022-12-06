@@ -52,14 +52,13 @@ public void OnAllPluginsLoaded()
 	if (g_bLate)
 	{
 		Skills_RequestConfigReload();
-		Skills_ForEveryClient(SFF_CLIENTS, OnClientPutInServer);
+		Skills_ForEveryClient(SFF_CLIENTS, HookClientOnTakeDamage);
 	}
 }
 
 public void OnClientPutInServer(int client)
 {
-	if (gExport.enable_no_fall_damage_on_max_level)
-		SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage);
+	HookClientOnTakeDamage(client);
 }
 
 public Action OnTakeDamage(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon, float damageForce[3], float damagePosition[3])
@@ -151,6 +150,14 @@ stock void ReJump( int client )
 	}
 }
 
+bool HookClientOnTakeDamage(int cl)
+{
+	if (gExport.enable_no_fall_damage_on_max_level)
+		SDKHook(cl, SDKHook_OnTakeDamage, OnTakeDamage);
+
+	return true;
+}
+
 int GetClientJumps(int client)
 {
 	int level = Skills_BaseGetLevelAA(g_clData[client].base);
@@ -172,9 +179,10 @@ bool HasSkill(int client)
 	return Skills_BaseHasSkill(g_clData[client].base);
 }
 
-void ResetClientSkill(int cl)
+bool ResetClientSkill(int cl)
 {
 	Skills_BaseReset(g_clData[cl].base);
+	return true;
 }
 
 public Action Skills_OnStateReset()

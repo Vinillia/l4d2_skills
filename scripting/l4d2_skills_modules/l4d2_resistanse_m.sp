@@ -43,15 +43,14 @@ public void OnAllPluginsLoaded()
 
 	if (g_bLate)
 	{
-		Skills_ForEveryClient(SFF_CLIENTS, OnClientPutInServer);
+		Skills_ForEveryClient(SFF_CLIENTS, HookClientOnTakeDamage);
 		Skills_RequestConfigReload();
 	}
 }
 
 public void OnClientPutInServer(int client)
 {
-	if (IsHaveSkill(client))
-		SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage);
+	HookClientOnTakeDamage(client);
 }
 
 public Action OnTakeDamage( int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &weapon,
@@ -130,9 +129,18 @@ bool IsHaveSkill( int client )
 	return Skills_BaseHasSkill(g_skill[client]);
 }
 
-void ResetClientSkill(int cl)
+bool ResetClientSkill(int cl)
 {
 	Skills_BaseReset(g_skill[cl]);
+	return true;
+}
+
+bool HookClientOnTakeDamage(int client)
+{
+	if (IsHaveSkill(client))
+		SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage);
+	
+	return true;
 }
 
 public Action Skills_OnStateReset()
@@ -140,3 +148,4 @@ public Action Skills_OnStateReset()
 	Skills_ForEveryClient(SFF_CLIENTS, ResetClientSkill);
 	return Plugin_Continue;
 }
+

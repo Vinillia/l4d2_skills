@@ -58,9 +58,10 @@ float GetClientSpeed( int client )
 	return gExport.power_for_levels[level];
 }
 
-void ResetClientSkill(int cl)
+bool ResetClientSkill(int cl)
 {
 	Skills_BaseReset(g_skill[cl]);
+	return true;
 }
 
 public Action Skills_OnStateReset()

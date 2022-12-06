@@ -104,9 +104,10 @@ public void Skills_OnGetSettings( KeyValues kv )
 	EXPORT_FINISH();
 }
 
-void ResetClientSkill(int cl)
+bool ResetClientSkill(int cl)
 {
 	Skills_BaseReset(g_skill[cl]);
+	return true;
 }
 
 public Action Skills_OnStateReset()

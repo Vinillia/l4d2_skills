@@ -126,9 +126,10 @@ bool IsHaveSkill( int client )
 	return Skills_BaseHasSkill(g_skill[client].base);
 }
 
-void ResetClientSkill(int cl)
+bool ResetClientSkill(int cl)
 {
 	Skills_BaseReset(g_skill[cl].base);
+	return true;
 }
 
 public void Skills_OnGetSettings( KeyValues kv )
