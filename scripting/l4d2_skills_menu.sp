@@ -127,6 +127,7 @@ public void OnPluginStart()
 {
 	RegConsoleCmd("sm_skills", sm_skills);
 
+	HookEvent("round_start", reset_command_block, EventHookMode_PostNoCopy);
 	HookEvent("round_end", reset_command_block, EventHookMode_PostNoCopy);
 	HookEvent("mission_lost", reset_command_block, EventHookMode_PostNoCopy);
 }
@@ -134,7 +135,15 @@ public void OnPluginStart()
 public void OnAllPluginsLoaded()
 {
 	if (g_bLate)
+	{
 		Skills_RequestConfigReload();
+		L4D_OnFirstSurvivorLeftSafeArea_Post(0);
+	}
+}
+
+public void OnMapStart()
+{
+	g_isBlocked = false;
 }
 
 public void reset_command_block(Event event, const char[] name, bool dontBroadcast)
@@ -583,7 +592,7 @@ public void L4D_OnFirstSurvivorLeftSafeArea_Post(int client)
 {
 	g_isBlocked = false;
 
-	if (gExport.time_to_block != -1.0)
+	if (gExport.time_to_block > 0.0)
 		CreateTimer(gExport.time_to_block, timer_block_command, TIMER_FLAG_NO_MAPCHANGE);
 }
 
@@ -602,7 +611,7 @@ public void Skills_OnGetSettings(KeyValues kv)
 	EXPORT_START("Skills Menu");
 
 	EXPORT_BOOL("allow_use_only_in_saferoom", gExport.allow_use_only_in_saferoom);
-	EXPORT_FLOAT_DEFAULT("time_to_block", gExport.time_to_block, -1.0);
+	EXPORT_FLOAT("time_to_block", gExport.time_to_block);
 
 	EXPORT_FINISH();
 }

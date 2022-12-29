@@ -65,7 +65,7 @@ public Action OnTakeDamage( int victim, int &attacker, int &inflictor, float &da
 	if (gExport.reflect_damage_to_attacker_on_max_level && Skills_BaseHasMaxLevel(g_skill[victim], gExport.base))
 	{
 		float reflect = damage / 100.0 * gExport.reflect_damage_percent;
-		SDKHooks_TakeDamage(attacker, victim, victim, reflect, damagetype, weapon, damageForce, damagePosition, true);
+		SDKHooks_TakeDamage(attacker, victim, victim, reflect, DMG_GENERIC, weapon, damageForce, damagePosition, true);
 	}
 
 	ApplyResistance(victim, damage);

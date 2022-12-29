@@ -863,12 +863,18 @@ stock void Skills_ReplyToCommand( int client, const char[] fmt, any ... )
 
 stock bool Skills_GivePlayerByID(int client, int id)
 {
+	if (Skills_ClientHaveByID(client, id))
+		return true;
+
 	Skills_ChangeState(client, id, SS_PURCHASED);
 	return true;
 }
 
 stock bool Skills_RemovePlayerByID(int client, int id)
 {
+	if (!Skills_ClientHaveByID(client, id))
+		return true;
+
 	Skills_ChangeState(client, id, SS_NULL);
 	return true;
 }
